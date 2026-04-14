@@ -417,7 +417,7 @@ export default function PatientsPage() {
                 <div>
                     <div className="page-title">Patient Management</div>
                     <div className="page-subtitle">
-                        142 registered patients · Clarum Mental Health Centre
+                        142 registered patients · BrightLife EHR
                     </div>
                 </div>
                 <div className="header-actions">
@@ -667,7 +667,7 @@ export default function PatientsPage() {
                                         </div>
                                         <div className="dots-menu-item">
                                             <span className="dots-menu-icon">📋</span>
-                                            View Enrollments
+                                            <p className={"text-nowrap!"}>View Enrollments</p>
                                         </div>
                                         <div className="dots-menu-item">
                                             <span className="dots-menu-icon">👩‍⚕️</span>

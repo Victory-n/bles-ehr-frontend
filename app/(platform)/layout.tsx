@@ -5,7 +5,7 @@ import TopbarComponent from "@/app/components/topbar";
 import React from "react";
 
 export const metadata: Metadata = {
-    title: "Clarum — Clinical Management Platform",
+    title: "BrightLife Enhancement Services EHR",
     description: "Clinical management platform for mental health centres",
 };
 

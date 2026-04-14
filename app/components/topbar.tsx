@@ -15,9 +15,9 @@ export default function TopbarComponent() {
                 </div>
 
                 <div className="topbar-user">
-                    <div className="topbar-av">AK</div>
+                    <div className="topbar-av">NV</div>
                     <div>
-                        <div className="topbar-user-name">Dr. A. Kolade</div>
+                        <div className="topbar-user-name">Dr. Ndukwe Victory</div>
                         <div className="topbar-user-role">Admin</div>
                     </div>
                     <span style={{ color: "var(--muted)", fontSize: 12, marginLeft: 4 }}>▾</span>
