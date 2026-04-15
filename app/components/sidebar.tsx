@@ -68,6 +68,17 @@ const navItems = [
                 ),
             },
             {
+                label: "Documents",
+                href: "/documents",
+                badge: null,
+                dot: false,
+                icon: (
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                    </svg>
+                ),
+            },
+            {
                 label: "Staff",
                 href: "/staff",
                 badge: null,
@@ -142,7 +153,8 @@ export default function SidebarComponent() {
                 <div key={group.section} className="nav-section">
                     <div className="nav-section-label">{group.section}</div>
                     {group.items.map((item) => {
-                        const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                        const isActive =
+                            pathname === item.href || pathname.startsWith(item.href + "/");
                         return (
                             <Link
                                 key={item.href}
@@ -152,7 +164,9 @@ export default function SidebarComponent() {
                             >
                                 <div className="nav-icon">{item.icon}</div>
                                 <span className="nav-label">{item.label}</span>
-                                {item.badge && <span className="nav-badge">{item.badge}</span>}
+                                {item.badge && (
+                                    <span className="nav-badge">{item.badge}</span>
+                                )}
                                 {item.dot && <span className="nav-dot" />}
                             </Link>
                         );
