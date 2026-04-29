@@ -1,32 +1,37 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+    const router = useRouter();
+
     const [formData, setFormData] = useState({
-        firstName: "",
-        lastName: "",
         email: "",
         password: "",
-        confirmPassword: "",
     });
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
-    const [success, setSuccess] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
         setError("");
     };
 
-    const handleSubmit = async (e: React.SubmitEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
 
+        if (!formData.email.trim() || !formData.password) {
+            setError("Please enter your email and password.");
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const res = await fetch("/auth/admin/login", {
+            // POST to our Next.js proxy route — never directly to the backend
+            const res = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -35,11 +40,14 @@ export default function LoginPage() {
                 }),
             });
 
-            if (res.status === 201) {
-                setSuccess(true);
+            const data = await res.json();
+
+            if (res.ok) {
+                // Cookies are set server-side; just navigate to dashboard
+                router.push("/dashboard");
+                router.refresh(); // ensure server components re-read cookies
             } else {
-                const data = await res.json().catch(() => ({}));
-                setError(data?.message || "Login failed. Please try again.");
+                setError(data?.message || "Invalid email or password.");
             }
         } catch {
             setError("Network error. Please check your connection and try again.");
@@ -50,6 +58,7 @@ export default function LoginPage() {
 
     return (
         <div className="auth-screen active">
+            {/* Logo */}
             <div className="auth-logo-wrap">
                 <div className="auth-logo">
                     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -61,28 +70,30 @@ export default function LoginPage() {
                 </div>
             </div>
 
+            {/* Card */}
             <div className="auth-card">
-                <div className="auth-card-title">Login to your account</div>
+                <div className="auth-card-title">Welcome back</div>
                 <div className="auth-card-sub">
-                    Request staff access to BrightLife EHR Platform
+                    Sign in to access the clinical platform
                 </div>
 
                 <form onSubmit={handleSubmit} noValidate>
                     {/* Email */}
                     <div className="form-group">
                         <label className="form-label" htmlFor="email">
-                            Work Email
+                            Email address
                         </label>
                         <input
                             id="email"
                             name="email"
                             type="email"
                             className="form-input"
-                            placeholder="your@hospital.org"
+                            placeholder="doctor@brightlife.health"
                             value={formData.email}
                             onChange={handleChange}
                             required
                             autoComplete="email"
+                            disabled={isLoading}
                         />
                     </div>
 
@@ -97,11 +108,12 @@ export default function LoginPage() {
                                 name="password"
                                 type={showPassword ? "text" : "password"}
                                 className="form-input"
-                                placeholder="Create a password"
+                                placeholder="Enter your password"
                                 value={formData.password}
                                 onChange={handleChange}
                                 required
-                                autoComplete="new-password"
+                                autoComplete="current-password"
+                                disabled={isLoading}
                             />
                             <span
                                 className="input-suffix"
@@ -109,8 +121,13 @@ export default function LoginPage() {
                                 role="button"
                                 aria-label="Toggle password visibility"
                             >
-                {showPassword ? "🙈" : "👁"}
-              </span>
+                                {showPassword ? "🙈" : "👁"}
+                            </span>
+                        </div>
+                        <div className="forgot-link">
+                            <a href="#" onClick={(e) => e.preventDefault()}>
+                                Forgot password?
+                            </a>
                         </div>
                     </div>
 
@@ -139,16 +156,19 @@ export default function LoginPage() {
                         type="submit"
                         className="btn-auth"
                         disabled={isLoading}
-                        style={{ opacity: isLoading ? 0.7 : 1, cursor: isLoading ? "not-allowed" : "pointer" }}
+                        style={{
+                            opacity: isLoading ? 0.7 : 1,
+                            cursor: isLoading ? "not-allowed" : "pointer",
+                        }}
                     >
-                        {isLoading ? "Logging in…" : "Login"}
+                        {isLoading ? "Signing in…" : "Sign In"}
                     </button>
                 </form>
             </div>
 
             <div className="auth-footer">
-                Already have an account? &nbsp;
-                <a href="/login">Sign in</a>
+                Don&apos;t have access? &nbsp;
+                <a href="/registration">Request account</a>
             </div>
         </div>
     );

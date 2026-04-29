@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "../globals.css";
 
 export const metadata: Metadata = {
-  title: "Clarum — Clinical Management Platform",
+  title: "BrightLife Enhancement Services EHR",
   description: "Clinical management platform for mental health centres",
 };
 
