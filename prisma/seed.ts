@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-import { AdminRole } from "@/src/type";
+import { PrismaClient, AdminRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -10,8 +9,11 @@ async function main(): Promise<void> {
     const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS ?? "12", 10);
     const hashedPassword = await bcrypt.hash("Admin@123!", saltRounds);
 
+    // Seed the one and only SUPER_ADMIN account.
+    // All other accounts are created as STAFF by default and must have
+    // permissions explicitly granted by the SUPER_ADMIN.
     const superAdmin = await prisma.admin.upsert({
-        where: { email: "superadmin@brightlife.health" },
+        where:  { email: "superadmin@brightlife.health" },
         update: {},
         create: {
             firstName: "Super",

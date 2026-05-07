@@ -4,7 +4,7 @@ import prisma from "../config/prisma";
 import { generateTokenPair } from "../utils/jwt";
 import { sendSuccess, sendError, JsonValue } from "../utils/response";
 import { validateRegisterInput, validateLoginInput } from "../utils/validation";
-import {SafeAdmin} from "@/src/type";
+import {SafeAdmin} from "@/src/types";
 
 // Widen a plain object to satisfy the `data` map constraint
 function toData(obj: unknown): Record<string, JsonValue> {
@@ -28,7 +28,7 @@ function toSafeAdmin(admin: {
         firstName:   admin.firstName,
         lastName:    admin.lastName,
         email:       admin.email,
-        role:        admin.role as SafeAdmin["role"],
+        role:        admin.role as SafeAdmin["role"],   // "SUPER_ADMIN" | "STAFF" | "AUDITOR"
         isActive:    admin.isActive,
         lastLoginAt: admin.lastLoginAt?.toISOString() ?? null,
         createdAt:   admin.createdAt.toISOString(),
@@ -42,7 +42,7 @@ function toSafeAdmin(admin: {
 export async function registerAdmin(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
 ): Promise<void> {
     try {
         const { firstName, lastName, email, password } = req.body as {
@@ -61,8 +61,7 @@ export async function registerAdmin(
 
         const cleanEmail = (email as string).toLowerCase().trim();
 
-        // 2. Duplicate check (Prisma will also enforce via unique constraint, but
-        //    we give a nicer message here)
+        // 2. Duplicate check
         const existing = await prisma.admin.findUnique({ where: { email: cleanEmail } });
         if (existing) {
             sendError({
@@ -78,13 +77,15 @@ export async function registerAdmin(
         const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS ?? "12", 10);
         const hashedPassword = await bcrypt.hash(password as string, saltRounds);
 
-        // 4. Insert row
+        // 4. Insert row — new accounts default to STAFF role with no permissions.
+        //    SUPER_ADMIN must explicitly grant permissions via the permissions API.
         const admin = await prisma.admin.create({
             data: {
                 firstName: (firstName as string).trim(),
                 lastName:  (lastName as string).trim(),
                 email:     cleanEmail,
                 password:  hashedPassword,
+                // role defaults to STAFF as defined in schema
             },
         });
 
@@ -106,7 +107,7 @@ export async function registerAdmin(
 export async function loginAdmin(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
 ): Promise<void> {
     try {
         const { email, password } = req.body as { email?: unknown; password?: unknown };
@@ -120,7 +121,7 @@ export async function loginAdmin(
 
         const cleanEmail = (email as string).toLowerCase().trim();
 
-        // 2. Lookup – select password explicitly
+        // 2. Lookup — select password explicitly
         const admin = await prisma.admin.findUnique({ where: { email: cleanEmail } });
         if (!admin) {
             // Generic message prevents user enumeration
@@ -148,7 +149,7 @@ export async function loginAdmin(
         // 5. Issue tokens
         const { accessToken, refreshToken } = generateTokenPair(admin.id, admin.email, admin.role);
 
-        // 6. Update lastLoginAt (fire-and-forget – no await)
+        // 6. Update lastLoginAt (fire-and-forget)
         prisma.admin.update({
             where: { id: admin.id },
             data:  { lastLoginAt: new Date() },
