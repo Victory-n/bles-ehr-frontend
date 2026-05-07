@@ -1,0 +1,42 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  Prisma Schema — BrightLife EHR
+//  Database: PostgreSQL (Amazon RDS / Aurora PostgreSQL)
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  CLINICIAN
+  STAFF
+}
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+model Admin {
+  id          String    @id @default(uuid()) @db.Uuid
+  firstName   String    @map("first_name") @db.VarChar(50)
+  lastName    String    @map("last_name") @db.VarChar(50)
+  email       String    @unique @db.VarChar(255)
+  password    String    @db.VarChar(255)
+  role        AdminRole @default(ADMIN)
+  isActive    Boolean   @default(true) @map("is_active")
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@map("admins")
+}
