@@ -26,6 +26,10 @@ interface Program {
 }
 
 const typeStyle: Record<ProgramType, { color: string; bg: string; icon: string; label: string }> = {
+    PHP:        { color: "#C0392B", bg: "#FDECEB", icon: "🏥", label: "PHP" },
+    IOP:        { color: "#D98326", bg: "#FEF3E2", icon: "🔄", label: "IOP" },
+    POP:        { color: "#2471A3", bg: "#EBF5FB", icon: "📋", label: "POP" },
+    OP:         { color: "#27A76A", bg: "#E9F7EF", icon: "🌿", label: "OP" },
     GROUP:      { color: "#6B5ED4", bg: "#EDEBFB", icon: "👥", label: "Group" },
     INDIVIDUAL: { color: "#2C7A6E", bg: "#E6F4F2", icon: "🧠", label: "Individual" },
 };

@@ -43,6 +43,7 @@ interface Program {
     startDate: string | null;
     endDate: string | null;
     metadata: any;
+    createdAt: string;
     createdBy: { id: string; firstName: string; lastName: string };
     enrollments: Enrollment[];
     _count: { notes: number };
