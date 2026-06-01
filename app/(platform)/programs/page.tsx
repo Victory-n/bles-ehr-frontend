@@ -26,11 +26,11 @@ interface Program {
 }
 
 const typeStyle: Record<ProgramType, { color: string; bg: string; icon: string; label: string }> = {
-    PHP:        { color: "#C0392B", bg: "#FDECEB", icon: "🏥", label: "PHP" },
-    IOP:        { color: "#D98326", bg: "#FEF3E2", icon: "🔄", label: "IOP" },
-    POP:        { color: "#2471A3", bg: "#EBF5FB", icon: "📋", label: "POP" },
-    OP:         { color: "#27A76A", bg: "#E9F7EF", icon: "🌿", label: "OP" },
-    GROUP:      { color: "#6B5ED4", bg: "#EDEBFB", icon: "👥", label: "Group" },
+    PHP: { color: "#C0392B", bg: "#FDECEB", icon: "🏥", label: "PHP" },
+    IOP: { color: "#D98326", bg: "#FEF3E2", icon: "🔄", label: "IOP" },
+    POP: { color: "#2471A3", bg: "#EBF5FB", icon: "📋", label: "POP" },
+    OP: { color: "#27A76A", bg: "#E9F7EF", icon: "🌿", label: "OP" },
+    GROUP: { color: "#6B5ED4", bg: "#EDEBFB", icon: "👥", label: "Group" },
     INDIVIDUAL: { color: "#2C7A6E", bg: "#E6F4F2", icon: "🧠", label: "Individual" },
 };
 
@@ -162,22 +162,22 @@ function AddProgramModal({ onClose, onCreated }: { onClose: () => void; onCreate
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label">Program Name</label>
                                 <input className="form-input" type="text" placeholder="e.g. Cognitive Behavioural Therapy"
-                                       value={form.name} onChange={e => update("name", e.target.value)} />
+                                    value={form.name} onChange={e => update("name", e.target.value)} />
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label">Description</label>
                                 <textarea className="form-input" rows={3}
-                                          placeholder="Brief description of the program's goals and approach…"
-                                          value={form.description} onChange={e => update("description", e.target.value)}
-                                          style={{ resize: "vertical", minHeight: 80 }} />
+                                    placeholder="Brief description of the program's goals and approach…"
+                                    value={form.description} onChange={e => update("description", e.target.value)}
+                                    style={{ resize: "vertical", minHeight: 80 }} />
                             </div>
 
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label">Category</label>
                                     <select className="form-input" value={form.category}
-                                            onChange={e => update("category", e.target.value)} style={{ cursor: "pointer" }}>
+                                        onChange={e => update("category", e.target.value)} style={{ cursor: "pointer" }}>
                                         <option value="">Select a category</option>
                                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
@@ -185,7 +185,7 @@ function AddProgramModal({ onClose, onCreated }: { onClose: () => void; onCreate
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label">Program Type</label>
                                     <select className="form-input" value={form.programType}
-                                            onChange={e => update("programType", e.target.value)} style={{ cursor: "pointer" }}>
+                                        onChange={e => update("programType", e.target.value)} style={{ cursor: "pointer" }}>
                                         {programTypes.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                 </div>
@@ -197,24 +197,24 @@ function AddProgramModal({ onClose, onCreated }: { onClose: () => void; onCreate
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label">Total Sessions</label>
                                     <input className="form-input" type="number" placeholder="e.g. 24"
-                                           value={form.totalSessions} onChange={e => update("totalSessions", e.target.value)} />
+                                        value={form.totalSessions} onChange={e => update("totalSessions", e.target.value)} />
                                 </div>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label">Duration (Months)</label>
                                     <input className="form-input" type="number" placeholder="e.g. 6"
-                                           value={form.durationMonths} onChange={e => update("durationMonths", e.target.value)} />
+                                        value={form.durationMonths} onChange={e => update("durationMonths", e.target.value)} />
                                 </div>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label">Max Enrollment</label>
                                     <input className="form-input" type="number" placeholder="e.g. 30"
-                                           value={form.maxEnrollment} onChange={e => update("maxEnrollment", e.target.value)} />
+                                        value={form.maxEnrollment} onChange={e => update("maxEnrollment", e.target.value)} />
                                 </div>
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label">Session Frequency</label>
                                 <select className="form-input" value={form.frequency}
-                                        onChange={e => update("frequency", e.target.value)} style={{ cursor: "pointer" }}>
+                                    onChange={e => update("frequency", e.target.value)} style={{ cursor: "pointer" }}>
                                     <option value="">Select frequency</option>
                                     {frequencies.map(f => <option key={f} value={f}>{f}</option>)}
                                 </select>
@@ -223,7 +223,7 @@ function AddProgramModal({ onClose, onCreated }: { onClose: () => void; onCreate
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label">Program Lead / Primary Therapist</label>
                                 <select className="form-input" value={form.lead}
-                                        onChange={e => update("lead", e.target.value)} style={{ cursor: "pointer" }}>
+                                    onChange={e => update("lead", e.target.value)} style={{ cursor: "pointer" }}>
                                     <option value="">Select a staff member</option>
                                     {staffList.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
@@ -232,9 +232,9 @@ function AddProgramModal({ onClose, onCreated }: { onClose: () => void; onCreate
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label">Additional Notes <span style={{ color: "var(--muted)", fontWeight: 400 }}>(optional)</span></label>
                                 <textarea className="form-input" rows={2}
-                                          placeholder="Any additional information…"
-                                          value={form.notes} onChange={e => update("notes", e.target.value)}
-                                          style={{ resize: "none" }} />
+                                    placeholder="Any additional information…"
+                                    value={form.notes} onChange={e => update("notes", e.target.value)}
+                                    style={{ resize: "none" }} />
                             </div>
                         </>
                     )}
@@ -285,8 +285,8 @@ function ProgramCard({ program }: { program: Program }) {
     return (
         <Link href={`/programs/${program.id}`} style={{ textDecoration: "none" }}>
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", transition: "box-shadow 0.2s, transform 0.2s", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column" }}
-                 onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 32px rgba(44,122,110,0.14)"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"; }}
-                 onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)"; }}>
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 32px rgba(44,122,110,0.14)"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "none"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)"; }}>
                 <div style={{ height: 4, background: isActive ? `linear-gradient(90deg, ${colors.color}, ${colors.color}88)` : "var(--border)" }} />
                 <div style={{ padding: "20px 20px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
@@ -327,7 +327,7 @@ function ProgramCard({ program }: { program: Program }) {
                 <div style={{ padding: "10px 20px", borderTop: "1px solid var(--border)", background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                         <div style={{ width: 22, height: 22, borderRadius: 6, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, color: "var(--primary)" }}>
-                            {lead.split(" ").slice(0, 2).map(w => w[0]).join("")}
+                            {lead.split(" ").slice(0, 2).map((w: any[]) => w[0]).join("")}
                         </div>
                         <span style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 600 }}>{lead.split(" — ")[0]}</span>
                     </div>
@@ -391,20 +391,20 @@ export default function ProgramsPage() {
     });
 
     const totalEnrolled = programs.reduce((s, p) => s + p._count.enrollments, 0);
-    const activeCount   = programs.filter(p => p.status === "ACTIVE").length;
+    const activeCount = programs.filter(p => p.status === "ACTIVE").length;
     const inactiveCount = programs.length - activeCount;
 
     const kpis = [
-        { label: "Total Programs",   value: String(programs.length), trend: "↑",  color: "#2C7A6E", points: "0,28 20,24 40,20 60,22 80,14 100,10" },
-        { label: "Active Programs",  value: String(activeCount),     trend: "↑",  color: "#27A76A", points: "0,30 20,26 40,28 60,20 80,22 100,10" },
-        { label: "Total Enrolled",   value: String(totalEnrolled),   trend: "↑",  color: "#6B5ED4", points: "0,32 20,28 40,22 60,24 80,16 100,8"  },
-        { label: "Inactive / Closed",value: String(inactiveCount),   trend: "—",  color: "#D98326", points: "0,20 20,22 40,18 60,24 80,20 100,22" },
+        { label: "Total Programs", value: String(programs.length), trend: "↑", color: "#2C7A6E", points: "0,28 20,24 40,20 60,22 80,14 100,10" },
+        { label: "Active Programs", value: String(activeCount), trend: "↑", color: "#27A76A", points: "0,30 20,26 40,28 60,20 80,22 100,10" },
+        { label: "Total Enrolled", value: String(totalEnrolled), trend: "↑", color: "#6B5ED4", points: "0,32 20,28 40,22 60,24 80,16 100,8" },
+        { label: "Inactive / Closed", value: String(inactiveCount), trend: "—", color: "#D98326", points: "0,20 20,22 40,18 60,24 80,20 100,22" },
     ];
 
     const tabs = [
-        { label: "All Programs",       count: programs.length },
-        { label: "Active",             count: activeCount },
-        { label: "Inactive / Closed",  count: inactiveCount },
+        { label: "All Programs", count: programs.length },
+        { label: "Active", count: activeCount },
+        { label: "Inactive / Closed", count: inactiveCount },
     ];
 
     return (
@@ -491,48 +491,48 @@ export default function ProgramsPage() {
                 <div className="card">
                     <table className="data-table">
                         <thead>
-                        <tr>
-                            <th>Program</th>
-                            <th>Type</th>
-                            <th>Lead (Created By)</th>
-                            <th>Enrolled</th>
-                            <th>Notes</th>
-                            <th>Status</th>
-                            <th style={{ textAlign: "right" }}>Action</th>
-                        </tr>
+                            <tr>
+                                <th>Program</th>
+                                <th>Type</th>
+                                <th>Lead (Created By)</th>
+                                <th>Enrolled</th>
+                                <th>Notes</th>
+                                <th>Status</th>
+                                <th style={{ textAlign: "right" }}>Action</th>
+                            </tr>
                         </thead>
                         <tbody>
-                        {filtered.map(p => {
-                            const ts = typeStyle[p.programType];
-                            const lead = `${p.createdBy.firstName} ${p.createdBy.lastName}`;
-                            return (
-                                <tr key={p.id}>
-                                    <td>
-                                        <Link href={`/programs/${p.id}`} style={{ textDecoration: "none" }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                                <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: `${ts.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{ts.icon}</div>
-                                                <div>
-                                                    <div className="patient-name">{p.name}</div>
-                                                    <div className="patient-id">{p.id.substring(0, 8).toUpperCase()}</div>
+                            {filtered.map(p => {
+                                const ts = typeStyle[p.programType];
+                                const lead = `${p.createdBy.firstName} ${p.createdBy.lastName}`;
+                                return (
+                                    <tr key={p.id}>
+                                        <td>
+                                            <Link href={`/programs/${p.id}`} style={{ textDecoration: "none" }}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                                    <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: `${ts.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{ts.icon}</div>
+                                                    <div>
+                                                        <div className="patient-name">{p.name}</div>
+                                                        <div className="patient-id">{p.id.substring(0, 8).toUpperCase()}</div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </Link>
-                                    </td>
-                                    <td>
-                                        <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, background: ts.bg, color: ts.color, fontFamily: "'Space Mono', monospace" }}>{ts.label}</span>
-                                    </td>
-                                    <td><span className="td-text">{lead}</span></td>
-                                    <td><span className="td-mono">{p._count.enrollments}</span></td>
-                                    <td><span className="td-mono">{p._count.notes}</span></td>
-                                    <td><span className={`chip ${statusChip[p.status]}`}>{statusLabel[p.status]}</span></td>
-                                    <td style={{ textAlign: "right" }}>
-                                        <Link href={`/programs/${p.id}`}>
-                                            <button style={{ padding: "6px 14px", border: "1.5px solid var(--border)", borderRadius: 8, background: "var(--card)", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View →</button>
-                                        </Link>
-                                    </td>
-                                </tr>
-                            );
-                        })}
+                                            </Link>
+                                        </td>
+                                        <td>
+                                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, background: ts.bg, color: ts.color, fontFamily: "'Space Mono', monospace" }}>{ts.label}</span>
+                                        </td>
+                                        <td><span className="td-text">{lead}</span></td>
+                                        <td><span className="td-mono">{p._count.enrollments}</span></td>
+                                        <td><span className="td-mono">{p._count.notes}</span></td>
+                                        <td><span className={`chip ${statusChip[p.status]}`}>{statusLabel[p.status]}</span></td>
+                                        <td style={{ textAlign: "right" }}>
+                                            <Link href={`/programs/${p.id}`}>
+                                                <button style={{ padding: "6px 14px", border: "1.5px solid var(--border)", borderRadius: 8, background: "var(--card)", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View →</button>
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                     <div className="pagination">
