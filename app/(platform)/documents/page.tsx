@@ -814,7 +814,7 @@ function PatientFolderView({
 
     return (
         <>
-            {/* {modal === "upload" && <UploadDocumentModal onClose={() => setModal(null)} patientName={patient.name} patientFolderId={patient.folderId} />} */}
+            {modal === "upload" && <UploadDocumentModal onClose={() => setModal(null)} patientName={patient.name} patientFolderId={patient.id} />}
             {modal === "send_signature" && <SendSignatureModal onClose={() => setModal(null)} formName={selectedFormName} patientName={patient.name} patientId={patient.id} />}
             {modal === "share_folder" && <ShareFolderModal onClose={() => setModal(null)} patientName={patient.name} />}
             {modal === "revoke_share" && patient.sharedWith && <RevokeShareModal onClose={() => setModal(null)} patientName={patient.name} orgName={patient.sharedWith} />}
