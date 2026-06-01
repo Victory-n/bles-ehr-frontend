@@ -56,7 +56,7 @@ interface Patient {
 }
 
 const typeStyle: Record<ProgramType, { color: string; bg: string; icon: string; label: string }> = {
-    GROUP:      { color: "#6B5ED4", bg: "#EDEBFB", icon: "👥", label: "Group" },
+    GROUP: { color: "#6B5ED4", bg: "#EDEBFB", icon: "👥", label: "Group" },
     INDIVIDUAL: { color: "#2C7A6E", bg: "#E6F4F2", icon: "🧠", label: "Individual" },
 };
 
@@ -358,7 +358,7 @@ export default function ProgramDetailPage({ params: paramsPromise }: { params: P
                                         </span>
                                         <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 12px", borderRadius: 20, background: "#E6F4F2", color: "#2C7A6E" }}>Psychotherapy</span>
                                         <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Lead: <strong>Dr. {program.createdBy.lastName}</strong></span>
-                                        <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Created {new Date(program.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                                        <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Created {new Date(program.id).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
                                     </div>
                                 </div>
                                 <div style={{ display: "flex", gap: 10 }}>
