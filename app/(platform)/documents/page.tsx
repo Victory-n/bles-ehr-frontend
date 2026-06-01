@@ -371,12 +371,12 @@ function complianceRate(patientId: string) {
    UPLOAD DOCUMENT MODAL
 ───────────────────────────────────── */
 function UploadDocumentModal({
-                                 onClose,
-                                 patientName,
-                                 patientFolderId,
-                                 patientsList = [],
-                                 onSuccess,
-                             }: {
+    onClose,
+    patientName,
+    patientFolderId,
+    patientsList = [],
+    onSuccess,
+}: {
     onClose: () => void;
     patientName?: string;
     patientFolderId?: string;
@@ -400,10 +400,10 @@ function UploadDocumentModal({
         try {
             const formData = new FormData();
             formData.append("file", form.file);
-            
+
             let mappedCategory = "OTHER";
             if (form.category === "compliance") mappedCategory = "CONSENT_FORM";
-            
+
             formData.append("category", mappedCategory);
             if (form.description) formData.append("description", form.description);
             formData.append("metadata", JSON.stringify({ docType: form.docType, originalCategory: form.category }));
@@ -528,8 +528,8 @@ function UploadDocumentModal({
 
                 <div style={{ padding: "16px 28px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10 }}>
                     <button onClick={onClose} style={{ padding: "10px 20px", border: "1.5px solid var(--border)", borderRadius: 9, background: "var(--card)", cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "var(--fg-mid)", fontFamily: "'Nunito', sans-serif" }}>Cancel</button>
-                    <button 
-                        onClick={handleUpload} 
+                    <button
+                        onClick={handleUpload}
                         disabled={loading || !form.patientFolderId || !form.file}
                         style={{ padding: "10px 24px", border: "none", borderRadius: 9, background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-mid) 100%)", cursor: (loading || !form.patientFolderId || !form.file) ? "not-allowed" : "pointer", fontSize: 13.5, fontWeight: 700, color: "#fff", fontFamily: "'Nunito', sans-serif", boxShadow: "0 3px 12px rgba(44,122,110,0.28)", opacity: (loading || !form.patientFolderId || !form.file) ? 0.7 : 1 }}
                     >
@@ -545,11 +545,11 @@ function UploadDocumentModal({
    SEND FOR SIGNATURE MODAL
 ───────────────────────────────────── */
 function SendSignatureModal({
-                                onClose,
-                                formName,
-                                patientName,
-                                patientId,
-                            }: {
+    onClose,
+    formName,
+    patientName,
+    patientId,
+}: {
     onClose: () => void;
     formName?: string;
     patientName?: string;
@@ -783,9 +783,9 @@ function RevokeShareModal({ onClose, patientName, orgName }: { onClose: () => vo
    PATIENT FOLDER VIEW
 ───────────────────────────────────── */
 function PatientFolderView({
-                               patient,
-                               onBack,
-                           }: {
+    patient,
+    onBack,
+}: {
     patient: typeof MOCK_PATIENTS[0];
     onBack: () => void;
 }) {
@@ -814,7 +814,7 @@ function PatientFolderView({
 
     return (
         <>
-            {modal === "upload" && <UploadDocumentModal onClose={() => setModal(null)} patientName={patient.name} patientFolderId={patient.folderId} />}
+            {/* {modal === "upload" && <UploadDocumentModal onClose={() => setModal(null)} patientName={patient.name} patientFolderId={patient.folderId} />} */}
             {modal === "send_signature" && <SendSignatureModal onClose={() => setModal(null)} formName={selectedFormName} patientName={patient.name} patientId={patient.id} />}
             {modal === "share_folder" && <ShareFolderModal onClose={() => setModal(null)} patientName={patient.name} />}
             {modal === "revoke_share" && patient.sharedWith && <RevokeShareModal onClose={() => setModal(null)} patientName={patient.name} orgName={patient.sharedWith} />}
@@ -847,8 +847,8 @@ function PatientFolderView({
                                         <span style={{ fontSize: 12.5, color: "var(--muted)" }}>{patient.assignedStaff}</span>
                                         {patient.sharedWith && (
                                             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "var(--warning-light)", color: "var(--warning)", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, fontFamily: "'Space Mono', monospace" }}>
-                        🔗 Shared with {patient.sharedWith}
-                      </span>
+                                                🔗 Shared with {patient.sharedWith}
+                                            </span>
                                         )}
                                     </div>
                                 </div>
@@ -940,68 +940,68 @@ function PatientFolderView({
                         </div>
                         <table className="data-table">
                             <thead>
-                            <tr>
-                                <th>Form Name</th>
-                                <th>Category</th>
-                                <th>Required</th>
-                                <th>Status</th>
-                                <th>Signed Date</th>
-                                <th>Expiry</th>
-                                <th style={{ textAlign: "right" as const }}>Actions</th>
-                            </tr>
+                                <tr>
+                                    <th>Form Name</th>
+                                    <th>Category</th>
+                                    <th>Required</th>
+                                    <th>Status</th>
+                                    <th>Signed Date</th>
+                                    <th>Expiry</th>
+                                    <th style={{ textAlign: "right" as const }}>Actions</th>
+                                </tr>
                             </thead>
                             <tbody>
-                            {complianceForms.map((entry) => {
-                                const template = COMPLIANCE_FORM_TEMPLATES.find((t) => t.id === entry.formId)!;
-                                const config = formStatusConfig[entry.status];
-                                return (
-                                    <tr key={entry.formId}>
-                                        <td>
-                                            <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{template.name}</div>
-                                            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 2 }}>{template.id}</div>
-                                        </td>
-                                        <td>
-                                            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: "var(--surface)", color: "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{template.category}</span>
-                                        </td>
-                                        <td>
-                                            {template.required ? (
-                                                <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--danger)", display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--danger)", display: "inline-block" }} />Required
-                          </span>
-                                            ) : (
-                                                <span style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 600 }}>Optional</span>
-                                            )}
-                                        </td>
-                                        <td><span className={`chip ${config.chip}`}>{config.label}</span></td>
-                                        <td><span className="td-mono">{entry.signedDate || "—"}</span></td>
-                                        <td>
-                                            {entry.expiryDate ? (
-                                                <span className="td-mono" style={{ color: entry.status === "expired" ? "var(--danger)" : "var(--fg-mid)" }}>{entry.expiryDate}</span>
-                                            ) : (
-                                                <span style={{ fontSize: 11.5, color: "var(--muted)" }}>No expiry</span>
-                                            )}
-                                        </td>
-                                        <td style={{ textAlign: "right" as const }}>
-                                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                                                {entry.status === "signed" && (
-                                                    <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
+                                {complianceForms.map((entry) => {
+                                    const template = COMPLIANCE_FORM_TEMPLATES.find((t) => t.id === entry.formId)!;
+                                    const config = formStatusConfig[entry.status];
+                                    return (
+                                        <tr key={entry.formId}>
+                                            <td>
+                                                <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{template.name}</div>
+                                                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 2 }}>{template.id}</div>
+                                            </td>
+                                            <td>
+                                                <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: "var(--surface)", color: "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{template.category}</span>
+                                            </td>
+                                            <td>
+                                                {template.required ? (
+                                                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--danger)", display: "flex", alignItems: "center", gap: 4 }}>
+                                                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--danger)", display: "inline-block" }} />Required
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 600 }}>Optional</span>
                                                 )}
-                                                {entry.status === "signed" && (
-                                                    <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--fg-mid)", fontFamily: "'Nunito', sans-serif" }}>⬇</button>
+                                            </td>
+                                            <td><span className={`chip ${config.chip}`}>{config.label}</span></td>
+                                            <td><span className="td-mono">{entry.signedDate || "—"}</span></td>
+                                            <td>
+                                                {entry.expiryDate ? (
+                                                    <span className="td-mono" style={{ color: entry.status === "expired" ? "var(--danger)" : "var(--fg-mid)" }}>{entry.expiryDate}</span>
+                                                ) : (
+                                                    <span style={{ fontSize: 11.5, color: "var(--muted)" }}>No expiry</span>
                                                 )}
-                                                {(entry.status === "not_started" || entry.status === "expired") && (
-                                                    <button onClick={() => { setSelectedFormName(template.name); setModal("send_signature"); }} style={{ padding: "5px 11px", border: `1.5px solid ${entry.status === "expired" ? "var(--danger)" : "var(--primary)"}`, borderRadius: 7, background: entry.status === "expired" ? "var(--danger-light)" : "var(--primary-light)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: entry.status === "expired" ? "var(--danger)" : "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>
-                                                        {entry.status === "expired" ? "Renew" : "Send"}
-                                                    </button>
-                                                )}
-                                                {entry.status === "pending" && (
-                                                    <button style={{ padding: "5px 11px", border: "1.5px solid var(--warning)", borderRadius: 7, background: "var(--warning-light)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--warning)", fontFamily: "'Nunito', sans-serif" }}>Resend</button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                                            </td>
+                                            <td style={{ textAlign: "right" as const }}>
+                                                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                                    {entry.status === "signed" && (
+                                                        <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
+                                                    )}
+                                                    {entry.status === "signed" && (
+                                                        <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--fg-mid)", fontFamily: "'Nunito', sans-serif" }}>⬇</button>
+                                                    )}
+                                                    {(entry.status === "not_started" || entry.status === "expired") && (
+                                                        <button onClick={() => { setSelectedFormName(template.name); setModal("send_signature"); }} style={{ padding: "5px 11px", border: `1.5px solid ${entry.status === "expired" ? "var(--danger)" : "var(--primary)"}`, borderRadius: 7, background: entry.status === "expired" ? "var(--danger-light)" : "var(--primary-light)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: entry.status === "expired" ? "var(--danger)" : "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>
+                                                            {entry.status === "expired" ? "Renew" : "Send"}
+                                                        </button>
+                                                    )}
+                                                    {entry.status === "pending" && (
+                                                        <button style={{ padding: "5px 11px", border: "1.5px solid var(--warning)", borderRadius: 7, background: "var(--warning-light)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--warning)", fontFamily: "'Nunito', sans-serif" }}>Resend</button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -1032,33 +1032,33 @@ function PatientFolderView({
                             </div>
                             <table className="data-table">
                                 <thead>
-                                <tr>
-                                    <th>Note</th>
-                                    <th>Type</th>
-                                    <th>Author</th>
-                                    <th>Date</th>
-                                    <th>Status</th>
-                                    <th style={{ textAlign: "right" as const }}>Action</th>
-                                </tr>
+                                    <tr>
+                                        <th>Note</th>
+                                        <th>Type</th>
+                                        <th>Author</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th style={{ textAlign: "right" as const }}>Action</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {clinicalNotes.map((note) => (
-                                    <tr key={note.id}>
-                                        <td>
-                                            <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{note.title}</div>
-                                            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 2 }}>{note.id}</div>
-                                        </td>
-                                        <td><span className="td-text">{note.type}</span></td>
-                                        <td><span className="td-text">{note.author}</span></td>
-                                        <td><span className="td-mono">{note.date}</span></td>
-                                        <td>
-                                            <span className={`chip ${note.status === "signed" ? "chip-active" : "chip-pending"}`}>{note.status === "signed" ? "Signed & Locked" : "Draft"}</span>
-                                        </td>
-                                        <td style={{ textAlign: "right" as const }}>
-                                            <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                    {clinicalNotes.map((note) => (
+                                        <tr key={note.id}>
+                                            <td>
+                                                <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{note.title}</div>
+                                                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 2 }}>{note.id}</div>
+                                            </td>
+                                            <td><span className="td-text">{note.type}</span></td>
+                                            <td><span className="td-text">{note.author}</span></td>
+                                            <td><span className="td-mono">{note.date}</span></td>
+                                            <td>
+                                                <span className={`chip ${note.status === "signed" ? "chip-active" : "chip-pending"}`}>{note.status === "signed" ? "Signed & Locked" : "Draft"}</span>
+                                            </td>
+                                            <td style={{ textAlign: "right" as const }}>
+                                                <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -1088,40 +1088,40 @@ function PatientFolderView({
                             </div>
                             <table className="data-table">
                                 <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Description</th>
-                                    <th>Type</th>
-                                    <th>Date</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th style={{ textAlign: "right" as const }}>Action</th>
-                                </tr>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Description</th>
+                                        <th>Type</th>
+                                        <th>Date</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th style={{ textAlign: "right" as const }}>Action</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {billingDocs.map((doc) => {
-                                    const bStyle = billingStatusConfig[doc.status] || { color: "var(--muted)", bg: "var(--surface)" };
-                                    return (
-                                        <tr key={doc.id}>
-                                            <td><span className="td-mono" style={{ color: "var(--primary)", fontWeight: 700 }}>{doc.id}</span></td>
-                                            <td><span className="td-text">{doc.description}</span></td>
-                                            <td>
-                                                <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: "var(--surface)", color: "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{doc.type}</span>
-                                            </td>
-                                            <td><span className="td-mono">{doc.date}</span></td>
-                                            <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--fg)" }}>{doc.amount}</span></td>
-                                            <td>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: bStyle.bg, color: bStyle.color, fontSize: 11.5, fontWeight: 700, textTransform: "capitalize" }}>
-                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: bStyle.color, display: "inline-block" }} />
-                              {doc.status}
-                          </span>
-                                            </td>
-                                            <td style={{ textAlign: "right" as const }}>
-                                                <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                    {billingDocs.map((doc) => {
+                                        const bStyle = billingStatusConfig[doc.status] || { color: "var(--muted)", bg: "var(--surface)" };
+                                        return (
+                                            <tr key={doc.id}>
+                                                <td><span className="td-mono" style={{ color: "var(--primary)", fontWeight: 700 }}>{doc.id}</span></td>
+                                                <td><span className="td-text">{doc.description}</span></td>
+                                                <td>
+                                                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: "var(--surface)", color: "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{doc.type}</span>
+                                                </td>
+                                                <td><span className="td-mono">{doc.date}</span></td>
+                                                <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--fg)" }}>{doc.amount}</span></td>
+                                                <td>
+                                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: bStyle.bg, color: bStyle.color, fontSize: 11.5, fontWeight: 700, textTransform: "capitalize" }}>
+                                                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: bStyle.color, display: "inline-block" }} />
+                                                        {doc.status}
+                                                    </span>
+                                                </td>
+                                                <td style={{ textAlign: "right" as const }}>
+                                                    <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -1153,47 +1153,47 @@ function PatientFolderView({
                             </div>
                             <table className="data-table">
                                 <thead>
-                                <tr>
-                                    <th>Document Name</th>
-                                    <th>Type</th>
-                                    <th>Uploaded By</th>
-                                    <th>Date</th>
-                                    <th>Size</th>
-                                    <th style={{ textAlign: "right" as const }}>Actions</th>
-                                </tr>
+                                    <tr>
+                                        <th>Document Name</th>
+                                        <th>Type</th>
+                                        <th>Uploaded By</th>
+                                        <th>Date</th>
+                                        <th>Size</th>
+                                        <th style={{ textAlign: "right" as const }}>Actions</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {generalDocs.map((doc) => (
-                                    <tr key={doc.id}>
-                                        <td>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                                <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{fileTypeIcon[doc.fileType] || "📄"}</div>
-                                                <div>
-                                                    <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{doc.name}</div>
-                                                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 2 }}>{doc.id} · {doc.fileType.toUpperCase()}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td><span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: "var(--surface)", color: "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{doc.type}</span></td>
-                                        <td><span className="td-text">{doc.uploadedBy}</span></td>
-                                        <td><span className="td-mono">{doc.date}</span></td>
-                                        <td><span className="td-mono">{doc.size}</span></td>
-                                        <td style={{ textAlign: "right" as const }}>
-                                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                                                <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
-                                                <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--fg-mid)", fontFamily: "'Nunito', sans-serif" }}>⬇</button>
-                                                <div className="dots-menu-wrap" style={{ position: "relative", zIndex: openMenuId === doc.id ? 200 : "auto" }}>
-                                                    <button className="dots-btn" onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === doc.id ? null : doc.id); }}>···</button>
-                                                    <div className={`dots-menu${openMenuId === doc.id ? " open" : ""}`}>
-                                                        <div className="dots-menu-item"><span className="dots-menu-icon">✏️</span>Rename</div>
-                                                        <div className="dots-menu-item"><span className="dots-menu-icon">📋</span>Copy Link</div>
-                                                        <div className="dots-menu-item danger"><span className="dots-menu-icon">🗑️</span>Delete</div>
+                                    {generalDocs.map((doc) => (
+                                        <tr key={doc.id}>
+                                            <td>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                                    <div style={{ width: 36, height: 36, borderRadius: 9, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{fileTypeIcon[doc.fileType] || "📄"}</div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{doc.name}</div>
+                                                        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 2 }}>{doc.id} · {doc.fileType.toUpperCase()}</div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                            </td>
+                                            <td><span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: "var(--surface)", color: "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{doc.type}</span></td>
+                                            <td><span className="td-text">{doc.uploadedBy}</span></td>
+                                            <td><span className="td-mono">{doc.date}</span></td>
+                                            <td><span className="td-mono">{doc.size}</span></td>
+                                            <td style={{ textAlign: "right" as const }}>
+                                                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                                    <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
+                                                    <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--fg-mid)", fontFamily: "'Nunito', sans-serif" }}>⬇</button>
+                                                    <div className="dots-menu-wrap" style={{ position: "relative", zIndex: openMenuId === doc.id ? 200 : "auto" }}>
+                                                        <button className="dots-btn" onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === doc.id ? null : doc.id); }}>···</button>
+                                                        <div className={`dots-menu${openMenuId === doc.id ? " open" : ""}`}>
+                                                            <div className="dots-menu-item"><span className="dots-menu-icon">✏️</span>Rename</div>
+                                                            <div className="dots-menu-item"><span className="dots-menu-icon">📋</span>Copy Link</div>
+                                                            <div className="dots-menu-item danger"><span className="dots-menu-icon">🗑️</span>Delete</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -1369,14 +1369,14 @@ export default function DocumentsPage() {
                         const name = `${patientBackend.firstName || ""} ${patientBackend.lastName || ""}`.trim() || "Unknown Patient";
                         const idDisplay = patientBackend.folder?.folderNumber || patientBackend.id?.substring(0, 8) || "N/A";
                         const initials = `${patientBackend.firstName?.[0] || ""}${patientBackend.lastName?.[0] || ""}`.toUpperCase() || "?";
-                        
+
                         const colors = ["#2C7A6E", "#6B5ED4", "#C94040", "#27A76A", "#D98326", "#7A9490"];
                         const color = patientBackend.metadata?.color || colors[(patientBackend.id?.length || 0) % colors.length] || "#2C7A6E";
-                        
+
                         const rate = patientBackend.complianceRate !== undefined ? patientBackend.complianceRate : (complianceRate(patientBackend.id) || 0);
                         const backendDocsCount = patientBackend.documentCount !== undefined ? patientBackend.documentCount : 0;
                         const docCount = backendDocsCount > 0 ? backendDocsCount : ((PATIENT_GENERAL_DOCS[patientBackend.id] || []).length + (PATIENT_CLINICAL_NOTES[patientBackend.id] || []).length + (PATIENT_BILLING_DOCS[patientBackend.id] || []).length + (PATIENT_COMPLIANCE_FORMS[patientBackend.id] || []).length);
-                        
+
                         const sharedWith = patientBackend.metadata?.sharedWith || null;
 
                         const patient = {
@@ -1451,50 +1451,50 @@ export default function DocumentsPage() {
                     </div>
                     <table className="data-table">
                         <thead>
-                        <tr>
-                            <th>Document</th>
-                            <th>Patient</th>
-                            <th>Category</th>
-                            <th>Uploaded / Signed By</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                            <th style={{ textAlign: "right" as const }}>Actions</th>
-                        </tr>
+                            <tr>
+                                <th>Document</th>
+                                <th>Patient</th>
+                                <th>Category</th>
+                                <th>Uploaded / Signed By</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th style={{ textAlign: "right" as const }}>Actions</th>
+                            </tr>
                         </thead>
                         <tbody>
-                        {allRecentDocs.map((doc, i) => (
-                            <tr key={doc.id + i}>
-                                <td>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                        <div style={{ width: 34, height: 34, borderRadius: 8, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{fileTypeIcon[doc.fileType] || "📋"}</div>
-                                        <div>
-                                            <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13, lineHeight: 1.3 }}>{doc.name}</div>
-                                            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 1 }}>{doc.id}</div>
+                            {allRecentDocs.map((doc, i) => (
+                                <tr key={doc.id + i}>
+                                    <td>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                            <div style={{ width: 34, height: 34, borderRadius: 8, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{fileTypeIcon[doc.fileType] || "📋"}</div>
+                                            <div>
+                                                <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13, lineHeight: 1.3 }}>{doc.name}</div>
+                                                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 1 }}>{doc.id}</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <div style={{ width: 26, height: 26, borderRadius: 6, background: doc.patient?.color || "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{doc.patient?.initials}</div>
-                                        <div>
-                                            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--fg)" }}>{doc.patient?.name}</div>
-                                            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8.5, color: "var(--muted)" }}>{doc.patient?.id}</div>
+                                    </td>
+                                    <td>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <div style={{ width: 26, height: 26, borderRadius: 6, background: doc.patient?.color || "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{doc.patient?.initials}</div>
+                                            <div>
+                                                <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--fg)" }}>{doc.patient?.name}</div>
+                                                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 8.5, color: "var(--muted)" }}>{doc.patient?.id}</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: doc.category === "Compliance Form" ? "var(--purple-light)" : "var(--surface)", color: doc.category === "Compliance Form" ? "var(--purple)" : "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{doc.category}</span>
-                                </td>
-                                <td><span className="td-text">{doc.uploadedBy}</span></td>
-                                <td><span className="td-mono">{doc.date}</span></td>
-                                <td><span className={`chip ${(doc as any).statusChip || "chip-active"}`}>{(doc as any).statusLabel || "Active"}</span></td>
-                                <td style={{ textAlign: "right" as const }}>
-                                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                                        <button onClick={() => { setSelectedPatient(doc.patient); setView("patient-folder"); }} style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>Open Folder</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+                                    </td>
+                                    <td>
+                                        <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: doc.category === "Compliance Form" ? "var(--purple-light)" : "var(--surface)", color: doc.category === "Compliance Form" ? "var(--purple)" : "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{doc.category}</span>
+                                    </td>
+                                    <td><span className="td-text">{doc.uploadedBy}</span></td>
+                                    <td><span className="td-mono">{doc.date}</span></td>
+                                    <td><span className={`chip ${(doc as any).statusChip || "chip-active"}`}>{(doc as any).statusLabel || "Active"}</span></td>
+                                    <td style={{ textAlign: "right" as const }}>
+                                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                            <button onClick={() => { setSelectedPatient(doc.patient); setView("patient-folder"); }} style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>Open Folder</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                     <div className="pagination">
@@ -1534,53 +1534,53 @@ export default function DocumentsPage() {
                         </div>
                         <table className="data-table">
                             <thead>
-                            <tr>
-                                <th>Patient</th>
-                                <th>Compliance</th>
-                                <th>Signed</th>
-                                <th>Pending</th>
-                                <th>Not Started</th>
-                                <th>Expired</th>
-                                <th style={{ textAlign: "right" as const }}>Actions</th>
-                            </tr>
+                                <tr>
+                                    <th>Patient</th>
+                                    <th>Compliance</th>
+                                    <th>Signed</th>
+                                    <th>Pending</th>
+                                    <th>Not Started</th>
+                                    <th>Expired</th>
+                                    <th style={{ textAlign: "right" as const }}>Actions</th>
+                                </tr>
                             </thead>
                             <tbody>
-                            {complianceOverview.map((p) => (
-                                <tr key={p.id}>
-                                    <td>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                            <div style={{ width: 34, height: 34, borderRadius: 9, background: `linear-gradient(135deg, ${p.color} 0%, ${p.color}88 100%)`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{p.initials}</div>
-                                            <div>
-                                                <div className="patient-name">{p.name}</div>
-                                                <div className="patient-id">{p.id}</div>
+                                {complianceOverview.map((p) => (
+                                    <tr key={p.id}>
+                                        <td>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                                <div style={{ width: 34, height: 34, borderRadius: 9, background: `linear-gradient(135deg, ${p.color} 0%, ${p.color}88 100%)`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{p.initials}</div>
+                                                <div>
+                                                    <div className="patient-name">{p.name}</div>
+                                                    <div className="patient-id">{p.id}</div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div style={{ minWidth: 120 }}>
-                                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                                                <span style={{ fontSize: 11.5, color: "var(--muted)" }}>{p.signed}/{p.total}</span>
-                                                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, fontWeight: 700, color: p.rate === 100 ? "var(--success)" : p.rate >= 70 ? "var(--warning)" : "var(--danger)" }}>{p.rate}%</span>
+                                        </td>
+                                        <td>
+                                            <div style={{ minWidth: 120 }}>
+                                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                                    <span style={{ fontSize: 11.5, color: "var(--muted)" }}>{p.signed}/{p.total}</span>
+                                                    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, fontWeight: 700, color: p.rate === 100 ? "var(--success)" : p.rate >= 70 ? "var(--warning)" : "var(--danger)" }}>{p.rate}%</span>
+                                                </div>
+                                                <div style={{ height: 6, background: "var(--border)", borderRadius: 6, overflow: "hidden" }}>
+                                                    <div style={{ height: "100%", width: `${p.rate}%`, background: p.rate === 100 ? "var(--success)" : p.rate >= 70 ? "var(--warning)" : "var(--danger)", borderRadius: 6 }} />
+                                                </div>
                                             </div>
-                                            <div style={{ height: 6, background: "var(--border)", borderRadius: 6, overflow: "hidden" }}>
-                                                <div style={{ height: "100%", width: `${p.rate}%`, background: p.rate === 100 ? "var(--success)" : p.rate >= 70 ? "var(--warning)" : "var(--danger)", borderRadius: 6 }} />
+                                        </td>
+                                        <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--success)" }}>{p.signed}</span></td>
+                                        <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: p.pending > 0 ? "var(--warning)" : "var(--muted)" }}>{p.pending}</span></td>
+                                        <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: p.notStarted > 0 ? "var(--muted)" : "var(--muted)" }}>{p.notStarted}</span></td>
+                                        <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: p.expired > 0 ? "var(--danger)" : "var(--muted)" }}>{p.expired}</span></td>
+                                        <td style={{ textAlign: "right" as const }}>
+                                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                                {(p.notStarted > 0 || p.expired > 0) && (
+                                                    <button style={{ padding: "5px 11px", border: "1.5px solid var(--warning)", borderRadius: 7, background: "var(--warning-light)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--warning)", fontFamily: "'Nunito', sans-serif", whiteSpace: "nowrap" }}>Send Reminder</button>
+                                                )}
+                                                <button onClick={() => { setSelectedPatient(MOCK_PATIENTS.find((mp) => mp.id === p.id)!); setView("patient-folder"); }} style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>Open Folder</button>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--success)" }}>{p.signed}</span></td>
-                                    <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: p.pending > 0 ? "var(--warning)" : "var(--muted)" }}>{p.pending}</span></td>
-                                    <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: p.notStarted > 0 ? "var(--muted)" : "var(--muted)" }}>{p.notStarted}</span></td>
-                                    <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: p.expired > 0 ? "var(--danger)" : "var(--muted)" }}>{p.expired}</span></td>
-                                    <td style={{ textAlign: "right" as const }}>
-                                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                                            {(p.notStarted > 0 || p.expired > 0) && (
-                                                <button style={{ padding: "5px 11px", border: "1.5px solid var(--warning)", borderRadius: 7, background: "var(--warning-light)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--warning)", fontFamily: "'Nunito', sans-serif", whiteSpace: "nowrap" }}>Send Reminder</button>
-                                            )}
-                                            <button onClick={() => { setSelectedPatient(MOCK_PATIENTS.find((mp) => mp.id === p.id)!); setView("patient-folder"); }} style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>Open Folder</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -1603,43 +1603,43 @@ export default function DocumentsPage() {
                         </div>
                         <table className="data-table">
                             <thead>
-                            <tr>
-                                <th>Note</th>
-                                <th>Patient</th>
-                                <th>Type</th>
-                                <th>Author</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th style={{ textAlign: "right" as const }}>Action</th>
-                            </tr>
+                                <tr>
+                                    <th>Note</th>
+                                    <th>Patient</th>
+                                    <th>Type</th>
+                                    <th>Author</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th style={{ textAlign: "right" as const }}>Action</th>
+                                </tr>
                             </thead>
                             <tbody>
-                            {Object.entries(PATIENT_CLINICAL_NOTES).flatMap(([pid, notes]) =>
-                                notes.map((note) => {
-                                    const patient = MOCK_PATIENTS.find((p) => p.id === pid)!;
-                                    return (
-                                        <tr key={note.id}>
-                                            <td>
-                                                <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{note.title}</div>
-                                                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 2 }}>{note.id}</div>
-                                            </td>
-                                            <td>
-                                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                    <div style={{ width: 24, height: 24, borderRadius: 6, background: patient?.color || "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{patient?.initials}</div>
-                                                    <span className="td-text">{patient?.name}</span>
-                                                </div>
-                                            </td>
-                                            <td><span className="td-text">{note.type}</span></td>
-                                            <td><span className="td-text">{note.author}</span></td>
-                                            <td><span className="td-mono">{note.date}</span></td>
-                                            <td><span className={`chip ${note.status === "signed" ? "chip-active" : "chip-pending"}`}>{note.status === "signed" ? "Signed" : "Draft"}</span></td>
-                                            <td style={{ textAlign: "right" as const }}>
-                                                <button onClick={() => { setSelectedPatient(patient); setView("patient-folder"); }} style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View in Folder</button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
+                                {Object.entries(PATIENT_CLINICAL_NOTES).flatMap(([pid, notes]) =>
+                                    notes.map((note) => {
+                                        const patient = MOCK_PATIENTS.find((p) => p.id === pid)!;
+                                        return (
+                                            <tr key={note.id}>
+                                                <td>
+                                                    <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{note.title}</div>
+                                                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 2 }}>{note.id}</div>
+                                                </td>
+                                                <td>
+                                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                        <div style={{ width: 24, height: 24, borderRadius: 6, background: patient?.color || "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{patient?.initials}</div>
+                                                        <span className="td-text">{patient?.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td><span className="td-text">{note.type}</span></td>
+                                                <td><span className="td-text">{note.author}</span></td>
+                                                <td><span className="td-mono">{note.date}</span></td>
+                                                <td><span className={`chip ${note.status === "signed" ? "chip-active" : "chip-pending"}`}>{note.status === "signed" ? "Signed" : "Draft"}</span></td>
+                                                <td style={{ textAlign: "right" as const }}>
+                                                    <button onClick={() => { setSelectedPatient(patient); setView("patient-folder"); }} style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View in Folder</button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
                         </table>
                         <div className="pagination">
@@ -1665,18 +1665,18 @@ export default function DocumentsPage() {
                         </div>
                         <table className="data-table">
                             <thead>
-                            <tr>
-                                <th>Record ID</th>
-                                <th>Patient</th>
-                                <th>Description</th>
-                                <th>Type</th>
-                                <th>Date</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                            </tr>
+                                <tr>
+                                    <th>Record ID</th>
+                                    <th>Patient</th>
+                                    <th>Description</th>
+                                    <th>Type</th>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                </tr>
                             </thead>
                             <tbody>
-                            {Object.entries(PATIENT_BILLING_DOCS).flatMap(([pid, docs]) =>
+                                {Object.entries(PATIENT_BILLING_DOCS).flatMap(([pid, docs]) =>
                                     docs.map((doc) => {
                                         const patient = MOCK_PATIENTS.find((p) => p.id === pid)!;
                                         const bStyle = billingStatusConfig[doc.status] || { color: "var(--muted)", bg: "var(--surface)" };
@@ -1694,15 +1694,15 @@ export default function DocumentsPage() {
                                                 <td><span className="td-mono">{doc.date}</span></td>
                                                 <td><span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--fg)" }}>{doc.amount}</span></td>
                                                 <td>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: bStyle.bg, color: bStyle.color, fontSize: 11.5, fontWeight: 700, textTransform: "capitalize" }}>
-                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: bStyle.color, display: "inline-block" }} />
-                              {doc.status}
-                          </span>
+                                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: bStyle.bg, color: bStyle.color, fontSize: 11.5, fontWeight: 700, textTransform: "capitalize" }}>
+                                                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: bStyle.color, display: "inline-block" }} />
+                                                        {doc.status}
+                                                    </span>
                                                 </td>
                                             </tr>
                                         );
                                     })
-                            )}
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -1718,51 +1718,51 @@ export default function DocumentsPage() {
                     </div>
                     <table className="data-table">
                         <thead>
-                        <tr>
-                            <th>Document</th>
-                            <th>Patient</th>
-                            <th>Type</th>
-                            <th>Uploaded By</th>
-                            <th>Date</th>
-                            <th>Size</th>
-                            <th style={{ textAlign: "right" as const }}>Actions</th>
-                        </tr>
+                            <tr>
+                                <th>Document</th>
+                                <th>Patient</th>
+                                <th>Type</th>
+                                <th>Uploaded By</th>
+                                <th>Date</th>
+                                <th>Size</th>
+                                <th style={{ textAlign: "right" as const }}>Actions</th>
+                            </tr>
                         </thead>
                         <tbody>
-                        {Object.entries(PATIENT_GENERAL_DOCS).flatMap(([pid, docs]) =>
-                            docs.map((doc) => {
-                                const patient = MOCK_PATIENTS.find((p) => p.id === pid)!;
-                                return (
-                                    <tr key={doc.id}>
-                                        <td>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                                <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{fileTypeIcon[doc.fileType] || "📄"}</div>
-                                                <div>
-                                                    <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{doc.name}</div>
-                                                    <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 1 }}>{doc.id} · {doc.fileType.toUpperCase()}</div>
+                            {Object.entries(PATIENT_GENERAL_DOCS).flatMap(([pid, docs]) =>
+                                docs.map((doc) => {
+                                    const patient = MOCK_PATIENTS.find((p) => p.id === pid)!;
+                                    return (
+                                        <tr key={doc.id}>
+                                            <td>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                                    <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{fileTypeIcon[doc.fileType] || "📄"}</div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 700, color: "var(--fg)", fontSize: 13.5 }}>{doc.name}</div>
+                                                        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "var(--muted)", marginTop: 1 }}>{doc.id} · {doc.fileType.toUpperCase()}</div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                <div style={{ width: 24, height: 24, borderRadius: 6, background: patient?.color || "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{patient?.initials}</div>
-                                                <span className="td-text">{patient?.name}</span>
-                                            </div>
-                                        </td>
-                                        <td><span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: "var(--surface)", color: "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{doc.type}</span></td>
-                                        <td><span className="td-text">{doc.uploadedBy}</span></td>
-                                        <td><span className="td-mono">{doc.date}</span></td>
-                                        <td><span className="td-mono">{doc.size}</span></td>
-                                        <td style={{ textAlign: "right" as const }}>
-                                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                                                <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
-                                                <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--fg-mid)", fontFamily: "'Nunito', sans-serif" }}>⬇</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })
-                        )}
+                                            </td>
+                                            <td>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                    <div style={{ width: 24, height: 24, borderRadius: 6, background: patient?.color || "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Fraunces', serif", fontSize: 9, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{patient?.initials}</div>
+                                                    <span className="td-text">{patient?.name}</span>
+                                                </div>
+                                            </td>
+                                            <td><span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: "var(--surface)", color: "var(--fg-mid)", fontFamily: "'Space Mono', monospace" }}>{doc.type}</span></td>
+                                            <td><span className="td-text">{doc.uploadedBy}</span></td>
+                                            <td><span className="td-mono">{doc.date}</span></td>
+                                            <td><span className="td-mono">{doc.size}</span></td>
+                                            <td style={{ textAlign: "right" as const }}>
+                                                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                                    <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--primary)", fontFamily: "'Nunito', sans-serif" }}>View</button>
+                                                    <button style={{ padding: "5px 11px", border: "1.5px solid var(--border)", borderRadius: 7, background: "var(--card)", cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "var(--fg-mid)", fontFamily: "'Nunito', sans-serif" }}>⬇</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
                         </tbody>
                     </table>
                     <div className="pagination">
