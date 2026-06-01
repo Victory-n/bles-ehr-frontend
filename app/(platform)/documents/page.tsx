@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 
 /* ─────────────────────────────────────
@@ -373,12 +373,18 @@ function complianceRate(patientId: string) {
 function UploadDocumentModal({
                                  onClose,
                                  patientName,
+                                 patientFolderId,
+                                 patientsList = [],
+                                 onSuccess,
                              }: {
     onClose: () => void;
     patientName?: string;
+    patientFolderId?: string;
+    patientsList?: any[];
+    onSuccess?: () => void;
 }) {
     const [form, setForm] = useState({
-        patient: patientName || "",
+        patientFolderId: patientFolderId || "",
         category: "general",
         docType: "",
         description: "",
@@ -386,6 +392,42 @@ function UploadDocumentModal({
     });
     const [dragging, setDragging] = useState(false);
     const [uploaded, setUploaded] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const handleUpload = async () => {
+        if (!form.patientFolderId || !form.file) return;
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", form.file);
+            
+            let mappedCategory = "OTHER";
+            if (form.category === "compliance") mappedCategory = "CONSENT_FORM";
+            
+            formData.append("category", mappedCategory);
+            if (form.description) formData.append("description", form.description);
+            formData.append("metadata", JSON.stringify({ docType: form.docType, originalCategory: form.category }));
+
+            const res = await fetch(`http://localhost:5000/documents/folder/${form.patientFolderId}`, {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+            });
+
+            if (res.ok) {
+                onSuccess?.();
+                onClose();
+            } else {
+                const data = await res.json();
+                alert(data.message || "Upload failed");
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            alert("A network error occurred.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const docTypes: Record<string, string[]> = {
         compliance: COMPLIANCE_FORM_TEMPLATES.map((t) => t.name),
@@ -415,9 +457,15 @@ function UploadDocumentModal({
                     {!patientName && (
                         <div className="form-group" style={{ marginBottom: 0 }}>
                             <label className="form-label">Patient</label>
-                            <select className="form-input" value={form.patient} onChange={(e) => setForm((p) => ({ ...p, patient: e.target.value }))} style={{ cursor: "pointer" }}>
+                            <select className="form-input" value={form.patientFolderId} onChange={(e) => setForm((p) => ({ ...p, patientFolderId: e.target.value }))} style={{ cursor: "pointer" }}>
                                 <option value="">Select patient</option>
-                                {MOCK_PATIENTS.map((p) => (<option key={p.id} value={p.name}>{p.name} — {p.id}</option>))}
+                                {patientsList.filter(p => p.status === "active").map((p) => {
+                                    const name = `${p.firstName} ${p.lastName}`;
+                                    const idDisplay = p.folder?.folderNumber || p.id?.substring(0, 8);
+                                    return (
+                                        <option key={p.id} value={p.folder?.id || ""}>{name} — {idDisplay}</option>
+                                    );
+                                })}
                             </select>
                         </div>
                     )}
@@ -480,7 +528,13 @@ function UploadDocumentModal({
 
                 <div style={{ padding: "16px 28px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10 }}>
                     <button onClick={onClose} style={{ padding: "10px 20px", border: "1.5px solid var(--border)", borderRadius: 9, background: "var(--card)", cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "var(--fg-mid)", fontFamily: "'Nunito', sans-serif" }}>Cancel</button>
-                    <button onClick={onClose} style={{ padding: "10px 24px", border: "none", borderRadius: 9, background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-mid) 100%)", cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#fff", fontFamily: "'Nunito', sans-serif", boxShadow: "0 3px 12px rgba(44,122,110,0.28)" }}>Upload Document</button>
+                    <button 
+                        onClick={handleUpload} 
+                        disabled={loading || !form.patientFolderId || !form.file}
+                        style={{ padding: "10px 24px", border: "none", borderRadius: 9, background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-mid) 100%)", cursor: (loading || !form.patientFolderId || !form.file) ? "not-allowed" : "pointer", fontSize: 13.5, fontWeight: 700, color: "#fff", fontFamily: "'Nunito', sans-serif", boxShadow: "0 3px 12px rgba(44,122,110,0.28)", opacity: (loading || !form.patientFolderId || !form.file) ? 0.7 : 1 }}
+                    >
+                        {loading ? "Uploading..." : "Upload Document"}
+                    </button>
                 </div>
             </div>
         </div>
@@ -760,7 +814,7 @@ function PatientFolderView({
 
     return (
         <>
-            {modal === "upload" && <UploadDocumentModal onClose={() => setModal(null)} patientName={patient.name} />}
+            {modal === "upload" && <UploadDocumentModal onClose={() => setModal(null)} patientName={patient.name} patientFolderId={patient.folderId} />}
             {modal === "send_signature" && <SendSignatureModal onClose={() => setModal(null)} formName={selectedFormName} patientName={patient.name} patientId={patient.id} />}
             {modal === "share_folder" && <ShareFolderModal onClose={() => setModal(null)} patientName={patient.name} />}
             {modal === "revoke_share" && patient.sharedWith && <RevokeShareModal onClose={() => setModal(null)} patientName={patient.name} orgName={patient.sharedWith} />}
@@ -1155,10 +1209,30 @@ function PatientFolderView({
 ───────────────────────────────────── */
 export default function DocumentsPage() {
     const [view, setView] = useState<ViewMode>("overview");
-    const [selectedPatient, setSelectedPatient] = useState<typeof MOCK_PATIENTS[0] | null>(null);
+    const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
     const [overviewTab, setOverviewTab] = useState<OverviewTab>("all");
     const [modal, setModal] = useState<ModalType>(null);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+    const [patients, setPatients] = useState<any[]>([]);
+    const [loadingPatients, setLoadingPatients] = useState(true);
+
+    useEffect(() => {
+        const fetchPatients = async () => {
+            try {
+                const res = await fetch("http://localhost:5000/patients", { credentials: "include" });
+                if (res.ok) {
+                    const data = await res.json();
+                    setPatients(data.data || []);
+                }
+            } catch (error) {
+                console.error("Failed to fetch patients:", error);
+            } finally {
+                setLoadingPatients(false);
+            }
+        };
+        fetchPatients();
+    }, []);
 
     // All documents flat list for the "All" tab
     const allRecentDocs = [
@@ -1222,11 +1296,17 @@ export default function DocumentsPage() {
         );
     }
 
+    const totalDocuments = patients.reduce((acc, p) => acc + (p.documentCount !== undefined ? p.documentCount : ((PATIENT_GENERAL_DOCS[p.id] || []).length + (PATIENT_CLINICAL_NOTES[p.id] || []).length + (PATIENT_BILLING_DOCS[p.id] || []).length + (PATIENT_COMPLIANCE_FORMS[p.id] || []).length)), 0);
+    const pendingSignatures = patients.reduce((acc, p) => acc + (p.pendingSignatures !== undefined ? p.pendingSignatures : ((PATIENT_COMPLIANCE_FORMS[p.id] || []).filter(f => f.status === "pending" || f.status === "not_started").length)), 0);
+    const totalRate = patients.reduce((acc, p) => acc + (p.complianceRate !== undefined ? p.complianceRate : (complianceRate(p.id) || 0)), 0);
+    const avgComplianceRate = patients.length > 0 ? Math.round(totalRate / patients.length) : 0;
+    const sharedFoldersCount = patients.filter(p => p.metadata?.sharedWith).length;
+
     const kpis = [
-        { label: "Total Documents", value: "284", trend: "↑ 22", trendSub: "this month", color: "#2C7A6E", sparkId: "dk1", points: "0,30 16,26 32,22 48,24 64,14 80,16 100,8" },
-        { label: "Pending Signatures", value: "8", trend: "↓ 3", trendSub: "vs last week", color: "#D98326", sparkId: "dk2", points: "0,20 16,22 32,18 48,24 64,16 80,14 100,18" },
-        { label: "Compliance Rate", value: "87%", trend: "↑ 5%", trendSub: "than last month", color: "#27A76A", sparkId: "dk3", points: "0,36 16,30 32,26 48,22 64,18 80,14 100,10" },
-        { label: "Shared Folders", value: "2", trend: "— ", trendSub: "active shares", color: "#6B5ED4", sparkId: "dk4", points: "0,30 16,28 32,30 48,26 64,28 80,24 100,22" },
+        { label: "Total Documents", value: loadingPatients ? "..." : String(totalDocuments), trend: "↑ 22", trendSub: "this month", color: "#2C7A6E", sparkId: "dk1", points: "0,30 16,26 32,22 48,24 64,14 80,16 100,8" },
+        { label: "Pending Signatures", value: loadingPatients ? "..." : String(pendingSignatures), trend: "↓ 3", trendSub: "vs last week", color: "#D98326", sparkId: "dk2", points: "0,20 16,22 32,18 48,24 64,16 80,14 100,18" },
+        { label: "Compliance Rate", value: loadingPatients ? "..." : `${avgComplianceRate}%`, trend: "↑ 5%", trendSub: "than last month", color: "#27A76A", sparkId: "dk3", points: "0,36 16,30 32,26 48,22 64,18 80,14 100,10" },
+        { label: "Shared Folders", value: loadingPatients ? "..." : String(sharedFoldersCount), trend: "— ", trendSub: "active shares", color: "#6B5ED4", sparkId: "dk4", points: "0,30 16,28 32,30 48,26 64,28 80,24 100,22" },
     ];
 
     const overviewTabs = [
@@ -1239,7 +1319,7 @@ export default function DocumentsPage() {
 
     return (
         <>
-            {modal === "upload" && <UploadDocumentModal onClose={() => setModal(null)} />}
+            {modal === "upload" && <UploadDocumentModal onClose={() => setModal(null)} patientsList={patients} />}
             {openMenuId && <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setOpenMenuId(null)} />}
 
             {/* Page Header */}
@@ -1281,12 +1361,39 @@ export default function DocumentsPage() {
                     <div className="card-meta">CLICK A FOLDER TO OPEN</div>
                 </div>
                 <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-                    {MOCK_PATIENTS.map((patient) => {
-                        const rate = complianceRate(patient.id);
-                        const docCount = (PATIENT_GENERAL_DOCS[patient.id] || []).length + (PATIENT_CLINICAL_NOTES[patient.id] || []).length + (PATIENT_BILLING_DOCS[patient.id] || []).length + (PATIENT_COMPLIANCE_FORMS[patient.id] || []).length;
+                    {loadingPatients ? (
+                        <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: 20, color: "var(--muted)" }}>Loading patients...</div>
+                    ) : patients.length === 0 ? (
+                        <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: 20, color: "var(--muted)" }}>No patients found.</div>
+                    ) : patients.map((patientBackend) => {
+                        const name = `${patientBackend.firstName || ""} ${patientBackend.lastName || ""}`.trim() || "Unknown Patient";
+                        const idDisplay = patientBackend.folder?.folderNumber || patientBackend.id?.substring(0, 8) || "N/A";
+                        const initials = `${patientBackend.firstName?.[0] || ""}${patientBackend.lastName?.[0] || ""}`.toUpperCase() || "?";
+                        
+                        const colors = ["#2C7A6E", "#6B5ED4", "#C94040", "#27A76A", "#D98326", "#7A9490"];
+                        const color = patientBackend.metadata?.color || colors[(patientBackend.id?.length || 0) % colors.length] || "#2C7A6E";
+                        
+                        const rate = patientBackend.complianceRate !== undefined ? patientBackend.complianceRate : (complianceRate(patientBackend.id) || 0);
+                        const backendDocsCount = patientBackend.documentCount !== undefined ? patientBackend.documentCount : 0;
+                        const docCount = backendDocsCount > 0 ? backendDocsCount : ((PATIENT_GENERAL_DOCS[patientBackend.id] || []).length + (PATIENT_CLINICAL_NOTES[patientBackend.id] || []).length + (PATIENT_BILLING_DOCS[patientBackend.id] || []).length + (PATIENT_COMPLIANCE_FORMS[patientBackend.id] || []).length);
+                        
+                        const sharedWith = patientBackend.metadata?.sharedWith || null;
+
+                        const patient = {
+                            id: idDisplay,
+                            realId: patientBackend.id,
+                            folderId: patientBackend.folder?.id,
+                            name,
+                            initials,
+                            color,
+                            diagnosis: patientBackend.metadata?.primaryDiagnosis || "Diagnosis Pending",
+                            assignedStaff: patientBackend.assignedStaff ? `${patientBackend.assignedStaff.firstName} ${patientBackend.assignedStaff.lastName}` : "Unassigned",
+                            sharedWith
+                        };
+
                         return (
                             <div
-                                key={patient.id}
+                                key={patientBackend.id}
                                 onClick={() => { setSelectedPatient(patient); setView("patient-folder"); }}
                                 style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", cursor: "pointer", transition: "all 0.18s", display: "flex", gap: 12, alignItems: "flex-start" }}
                                 onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 18px rgba(44,122,110,0.14)"; (e.currentTarget as HTMLDivElement).style.borderColor = "var(--primary)"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-1px)"; }}

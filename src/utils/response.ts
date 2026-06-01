@@ -1,51 +1,44 @@
 import { Response } from "express";
 
-export type JsonValue =
-    | string
-    | number
-    | boolean
-    | null
-    | JsonValue[]
-    | { [key: string]: JsonValue };
-
-interface SendSuccessOptions {
+interface SuccessResponseParams {
     res: Response;
     statusCode?: number;
-    message: string;
-    data?: Record<string, JsonValue>;
+    message?: string;
+    data?: any;
+    [key: string]: any;
 }
 
-interface SendErrorOptions {
+export const sendSuccess = ({
+    res,
+    statusCode = 200,
+    message = "Success",
+    data,
+    ...rest
+}: SuccessResponseParams) => {
+    return res.status(statusCode).json({
+        success: true,
+        message,
+        ...(data !== undefined && { data }),
+        ...rest,
+    });
+};
+
+interface ErrorResponseParams {
     res: Response;
     statusCode?: number;
-    message: string;
-    errors?: Record<string, string>;
+    message?: string;
+    errors?: any;
 }
 
-export function sendSuccess({
-                                res,
-                                statusCode = 200,
-                                message,
-                                data = {},
-                            }: SendSuccessOptions): Response {
-    return res.status(statusCode).json({ success: true, message, ...data });
-}
-
-export function sendError({
-                              res,
-                              statusCode = 500,
-                              message,
-                              errors,
-                          }: SendErrorOptions): Response {
-    const body: {
-        success: false;
-        message: string;
-        errors?: Record<string, string>;
-    } = { success: false, message };
-
-    if (errors && Object.keys(errors).length > 0) {
-        body.errors = errors;
-    }
-
-    return res.status(statusCode).json(body);
-}
+export const sendError = ({
+    res,
+    statusCode = 400,
+    message = "An error occurred",
+    errors,
+}: ErrorResponseParams) => {
+    return res.status(statusCode).json({
+        success: false,
+        message,
+        ...(errors !== undefined && { errors }),
+    });
+};

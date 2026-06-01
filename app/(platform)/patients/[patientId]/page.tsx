@@ -1,818 +1,397 @@
 "use client";
 
-import { useState } from "react";
+import React, { use, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
-/* ─── Mock patient detail data ─── */
-const patientData = {
-    id: "PAT-0142",
-    name: "Amara Okafor",
-    initials: "AO",
-    color: "#2C7A6E",
-    gender: "Female",
-    dob: "14 March 1990",
-    age: 35,
-    phone: "0803 111 2233",
-    email: "amara.okafor@gmail.com",
-    address: "14 Aba Road, Wuse 2, Abuja",
-    diagnosis: "Major Depressive Disorder",
-    assignedStaff: "Dr. B. Adeyemi",
-    admittedOn: "12 Feb 2025",
-    sessions: 14,
-    status: "active",
-    bloodGroup: "O+",
-    allergies: "Penicillin",
-    notes:
-        "Patient shows consistent engagement. PHQ-9 score improving. Monitor for medication compliance.",
+const tabs = ["Overview", "Programs", "Notes", "Documents"];
+
+const statusChipMap: Record<string, string> = {
+    active: "chip-active",
+    ACTIVE: "chip-active",
+    pending: "chip-pending",
+    critical: "chip-critical",
+    inactive: "chip-inactive",
+    discharged: "chip-inactive",
+    DISCHARGED: "chip-inactive",
 };
 
-const emergencyContacts = [
-    {
-        name: "Chukwuemeka Okafor",
-        relationship: "Spouse",
-        phone: "0803 999 1122",
-    },
-    {
-        name: "Ngozi Okafor",
-        relationship: "Sister",
-        phone: "0803 888 4455",
-    },
-];
-
-const enrollments = [
-    {
-        id: "ENR-001",
-        program: "Cognitive Behavioural Therapy (CBT)",
-        startDate: "15 Feb 2025",
-        endDate: "15 Aug 2025",
-        sessions: "14 / 24",
-        therapist: "Dr. B. Adeyemi",
-        status: "active",
-        progress: 58,
-    },
-    {
-        id: "ENR-002",
-        program: "Group Anxiety Support",
-        startDate: "01 Mar 2025",
-        endDate: "30 Jun 2025",
-        sessions: "6 / 12",
-        therapist: "Dr. C. Obi",
-        status: "active",
-        progress: 50,
-    },
-    {
-        id: "ENR-003",
-        program: "Mindfulness & Stress Management",
-        startDate: "10 Jan 2025",
-        endDate: "10 Apr 2025",
-        sessions: "12 / 12",
-        therapist: "Nurse R. Bello",
-        status: "completed",
-        progress: 100,
-    },
-];
-
-const recentSessions = [
-    {
-        date: "10 Apr 2026",
-        type: "CBT Session",
-        therapist: "Dr. B. Adeyemi",
-        duration: "60 min",
-        notes: "Discussed cognitive distortions. Homework assigned.",
-        mood: "Improving",
-    },
-    {
-        date: "03 Apr 2026",
-        type: "Group Session",
-        therapist: "Dr. C. Obi",
-        duration: "75 min",
-        notes: "Participated actively in group discussion.",
-        mood: "Stable",
-    },
-    {
-        date: "27 Mar 2026",
-        type: "CBT Session",
-        therapist: "Dr. B. Adeyemi",
-        duration: "60 min",
-        notes: "Behavioural activation strategies introduced.",
-        mood: "Moderate",
-    },
-];
-
-const tabs = ["Overview", "Programs", "Sessions", "Documents"];
-
-const moodColorMap: Record<string, string> = {
-    Improving: "var(--success)",
-    Stable: "var(--primary)",
-    Moderate: "var(--warning)",
-    Distressed: "var(--danger)",
+const statusLabelMap: Record<string, string> = {
+    active: "Active",
+    ACTIVE: "Active",
+    pending: "Pending",
+    critical: "Critical",
+    inactive: "Inactive",
+    discharged: "Discharged",
+    DISCHARGED: "Discharged",
 };
 
-export default function PatientDetailPage({ params }: { params: { patientId: string } }) {
+/* ─── Create Note Modal ─── */
+function CreateNoteModal({ patientFolderId, onClose, onCreated }: { patientFolderId: string, onClose: () => void, onCreated: () => void }) {
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [form, setForm] = useState({
+        noteType: "SOAP",
+        noteStyle: "CLINICAL",
+        sessionDate: new Date().toISOString().split('T')[0],
+        content: { text: "" },
+    });
+
+    const handleCreate = async () => {
+        if (!form.content.text.trim()) return;
+        setSaving(true); setError(null);
+        try {
+            const res = await fetch("http://localhost:5000/notes", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                    patientFolderId,
+                    ...form,
+                }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || "Failed to create note.");
+            }
+            onCreated();
+            onClose();
+        } catch (e: any) {
+            setError(e.message);
+        } finally { setSaving(false); }
+    };
+
+    return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(25,40,37,0.58)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={e => e.target === e.currentTarget && onClose()}>
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 18, width: "100%", maxWidth: 600, boxShadow: "0 28px 72px rgba(25,40,37,0.22)", overflow: "hidden" }}>
+                <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", background: "var(--primary-xlight)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 700 }}>New Clinical Note</div>
+                    <button onClick={onClose} style={{ width: 32, height: 32, border: "1.5px solid var(--border)", borderRadius: 8, background: "var(--card)" }}>✕</button>
+                </div>
+                <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+                        <div className="form-group">
+                            <label className="form-label">Note Type</label>
+                            <select className="form-input" value={form.noteType} onChange={e => setForm(p => ({ ...p, noteType: e.target.value }))}>
+                                <option value="SOAP">SOAP</option>
+                                <option value="DAP">DAP</option>
+                                <option value="HPI">HPI</option>
+                                <option value="FREE_TEXT">Free Text</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Category</label>
+                            <select className="form-input" value={form.noteStyle} onChange={e => setForm(p => ({ ...p, noteStyle: e.target.value }))}>
+                                <option value="CLINICAL">Clinical Note</option>
+                                <option value="INTAKE">Intake Assessment</option>
+                                <option value="DISCHARGE">Discharge Summary</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Session Date</label>
+                            <input className="form-input" type="date" value={form.sessionDate} onChange={e => setForm(p => ({ ...p, sessionDate: e.target.value }))} />
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">Content</label>
+                        <textarea className="form-input" rows={10} value={form.content.text} onChange={e => setForm(p => ({ ...p, content: { text: e.target.value } }))} placeholder="Type your note here..." style={{ fontFamily: "inherit" }} />
+                    </div>
+                </div>
+                <div style={{ padding: "14px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    <button onClick={onClose} style={{ padding: "10px 18px", border: "1.5px solid var(--border)", borderRadius: 9 }}>Cancel</button>
+                    <button onClick={handleCreate} disabled={saving || !form.content.text.trim()} style={{ padding: "10px 24px", border: "none", borderRadius: 9, background: "var(--primary)", color: "#fff" }}>{saving ? "Saving..." : "Save Draft"}</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default function PatientDetailPage({ params: paramsPromise }: { params: Promise<{ patientId: string }> }) {
+    const params = use(paramsPromise);
+    const { patientId } = params;
+
     const [activeTab, setActiveTab] = useState("Overview");
+    const [patientData, setPatientData] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const progressColor = (pct: number) =>
-        pct === 100 ? "var(--success)" : pct >= 60 ? "var(--primary)" : "var(--warning)";
+    // Tab-specific data
+    const [notes, setNotes] = useState<any[]>([]);
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [fetchingNotes, setFetchingNotes] = useState(false);
+    const [fetchingDocs, setFetchingDocs] = useState(false);
+    const [showNoteModal, setShowNoteModal] = useState(false);
+
+    const fetchPatient = useCallback(async () => {
+        try {
+            setLoading(true);
+            const res = await fetch(`http://localhost:5000/patients/${patientId}`, { credentials: "include" });
+            const data = await res.json();
+            if (res.ok) setPatientData(data.data);
+            else setError(data.message || "Failed to load patient.");
+        } catch (err) { setError("Network error."); }
+        finally { setLoading(false); }
+    }, [patientId]);
+
+    useEffect(() => { fetchPatient(); }, [fetchPatient]);
+
+    const fetchNotes = useCallback(async () => {
+        if (!patientData?.folder?.id) return;
+        try {
+            setFetchingNotes(true);
+            const res = await fetch(`http://localhost:5000/notes?patientFolderId=${patientData.folder.id}`, { credentials: "include" });
+            const data = await res.json();
+            if (res.ok) setNotes(data.data || []);
+        } catch (e) { console.error(e); }
+        finally { setFetchingNotes(false); }
+    }, [patientData?.folder?.id]);
+
+    const fetchDocuments = useCallback(async () => {
+        if (!patientData?.folder?.id) return;
+        try {
+            setFetchingDocs(true);
+            const res = await fetch(`http://localhost:5000/documents/folder/${patientData.folder.id}`, { credentials: "include" });
+            const data = await res.json();
+            if (res.ok) setDocuments(data.data || []);
+        } catch (e) { console.error(e); }
+        finally { setFetchingDocs(false); }
+    }, [patientData?.folder?.id]);
+
+    useEffect(() => {
+        if (activeTab === "Notes") fetchNotes();
+        if (activeTab === "Documents") fetchDocuments();
+    }, [activeTab, fetchNotes, fetchDocuments]);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !patientData?.folder?.id) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("category", "OTHER");
+        formData.append("description", `Uploaded from patient profile`);
+
+        try {
+            const res = await fetch(`http://localhost:5000/documents/folder/${patientData.folder.id}`, {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+            });
+            if (res.ok) fetchDocuments();
+            else alert("Upload failed.");
+        } catch (err) { alert("Network error during upload."); }
+    };
+
+    const handleDeleteDoc = async (id: string) => {
+        if (!confirm("Delete this document?")) return;
+        try {
+            const res = await fetch(`http://localhost:5000/documents/${id}`, { method: "DELETE", credentials: "include" });
+            if (res.ok) fetchDocuments();
+        } catch (e) { alert("Error deleting document."); }
+    };
+
+    if (loading) return <div style={{ padding: 40, textAlign: "center" }}>Loading patient details...</div>;
+    if (error || !patientData) return <div style={{ padding: 40, textAlign: "center" }}>⚠️ {error || "Patient not found."}</div>;
+
+    const fullName = `${patientData.firstName} ${patientData.lastName}`;
+    const initials = `${patientData.firstName[0]}${patientData.lastName[0]}`;
+    const age = patientData.dateOfBirth ? new Date().getFullYear() - new Date(patientData.dateOfBirth).getFullYear() : '-';
 
     return (
         <>
-            {/* Breadcrumb + Back */}
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    marginBottom: 20,
-                    fontSize: 13,
-                    color: "var(--muted)",
-                }}
-            >
-                <Link
-                    href="/patients"
-                    style={{
-                        color: "var(--primary)",
-                        textDecoration: "none",
-                        fontWeight: 700,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 5,
-                    }}
-                >
-                    ← Patients
-                </Link>
+            {showNoteModal && <CreateNoteModal patientFolderId={patientData.folder.id} onClose={() => setShowNoteModal(false)} onCreated={fetchNotes} />}
+
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, fontSize: 13, color: "var(--muted)" }}>
+                <Link href="/patients" style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 700 }}>← Patients</Link>
                 <span>/</span>
-                <span style={{ color: "var(--fg)", fontWeight: 600 }}>{patientData.name}</span>
-                <span
-                    style={{
-                        fontFamily: "'Space Mono', monospace",
-                        fontSize: 10,
-                        color: "var(--muted)",
-                        marginLeft: 4,
-                    }}
-                >
-          {patientData.id}
-        </span>
+                <span style={{ color: "var(--fg)", fontWeight: 600 }}>{fullName}</span>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: "#2C7A6E", background: "#E6F4F2", padding: "2px 8px", borderRadius: 5, fontWeight: 700, marginLeft: 4 }}>{patientData.folder?.folderNumber || "NO FOLDER"}</span>
             </div>
 
-            {/* Patient Hero Card */}
-            <div
-                style={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 16,
-                    marginBottom: 20,
-                    overflow: "hidden",
-                }}
-            >
-                {/* Top band */}
-                <div
-                    style={{
-                        height: 6,
-                        background: `linear-gradient(90deg, ${patientData.color}, var(--primary-mid))`,
-                    }}
-                />
-
-                <div style={{ padding: "24px 28px", display: "flex", gap: 24, alignItems: "flex-start" }}>
-                    {/* Avatar */}
-                    <div
-                        style={{
-                            width: 72,
-                            height: 72,
-                            borderRadius: 16,
-                            background: `linear-gradient(135deg, ${patientData.color} 0%, var(--primary-mid) 100%)`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontFamily: "'Fraunces', serif",
-                            fontSize: 26,
-                            fontWeight: 700,
-                            color: "#fff",
-                            flexShrink: 0,
-                            boxShadow: `0 8px 24px ${patientData.color}40`,
-                        }}
-                    >
-                        {patientData.initials}
-                    </div>
-
-                    {/* Core Info */}
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-                            <div>
-                                <h1
-                                    style={{
-                                        fontFamily: "'Fraunces', serif",
-                                        fontSize: 24,
-                                        fontWeight: 700,
-                                        color: "var(--fg)",
-                                        letterSpacing: "-0.02em",
-                                        marginBottom: 4,
-                                    }}
-                                >
-                                    {patientData.name}
-                                </h1>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span
-                      style={{
-                          fontFamily: "'Space Mono', monospace",
-                          fontSize: 10,
-                          color: "var(--primary)",
-                          background: "var(--primary-light)",
-                          padding: "3px 9px",
-                          borderRadius: 5,
-                          fontWeight: 700,
-                      }}
-                  >
-                    {patientData.id}
-                  </span>
-                                    <span className="chip chip-active">{patientData.status}</span>
-                                    <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                    {patientData.gender} · {patientData.age} yrs
-                  </span>
+            <div className="card" style={{ marginBottom: 20, overflow: "hidden" }}>
+                <div style={{ height: 4, background: "#2C7A6E", opacity: 0.6 }} />
+                <div style={{ padding: "24px 28px" }}>
+                    <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+                        <div style={{ width: 72, height: 72, borderRadius: 18, background: "#E6F4F2", border: "1px solid #2C7A6E20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700, color: "#2C7A6E", flexShrink: 0, boxShadow: "inset 0 2px 4px rgba(0,0,0,0.05)" }}>{initials}</div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                                <div>
+                                    <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 700, marginBottom: 8, color: "var(--fg)" }}>{fullName}</h1>
+                                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                                        <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#E6F4F2", color: "#2C7A6E", fontFamily: "'Space Mono', monospace" }}>{patientData.folder?.folderNumber}</span>
+                                        <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 12px", borderRadius: 20, background: "#E6F4F2", color: "#27A76A", display: "flex", alignItems: "center", gap: 5 }}>
+                                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#27A76A" }} />
+                                            active
+                                        </span>
+                                        <span style={{ fontSize: 12.5, color: "var(--muted)" }}>{patientData.gender} · {age} yrs</span>
+                                    </div>
+                                </div>
+                                <div style={{ display: "flex", gap: 10 }}>
+                                    <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", border: "1.5px solid var(--border)", borderRadius: 10, background: "var(--card)", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--fg-mid)" }}>
+                                        <span style={{ color: "#D98326" }}>✏️</span> Edit
+                                    </button>
+                                    <button onClick={() => setShowNoteModal(true)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 20px", background: "#2C7A6E", border: "none", borderRadius: 10, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 12px rgba(44,122,110,0.2)" }}>
+                                        <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Enrol in Program
+                                    </button>
                                 </div>
                             </div>
 
-                            {/* Actions */}
-                            <div style={{ display: "flex", gap: 8 }}>
-                                <button
-                                    style={{
-                                        padding: "8px 16px",
-                                        border: "1.5px solid var(--border)",
-                                        borderRadius: 9,
-                                        background: "var(--card)",
-                                        cursor: "pointer",
-                                        fontSize: 12.5,
-                                        fontWeight: 700,
-                                        color: "var(--fg-mid)",
-                                        fontFamily: "'Nunito', sans-serif",
-                                        transition: "all 0.13s",
-                                    }}
-                                >
-                                    ✏️ Edit
-                                </button>
-                                <button
-                                    style={{
-                                        padding: "8px 16px",
-                                        border: "none",
-                                        borderRadius: 9,
-                                        background: "var(--primary)",
-                                        cursor: "pointer",
-                                        fontSize: 12.5,
-                                        fontWeight: 700,
-                                        color: "#fff",
-                                        fontFamily: "'Nunito', sans-serif",
-                                        boxShadow: "0 2px 8px rgba(44,122,110,0.25)",
-                                        transition: "opacity 0.15s",
-                                    }}
-                                >
-                                    + Enrol in Program
-                                </button>
+                            {/* Info Grid */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", borderTop: "1px solid var(--border)", padding: "16px 0" }}>
+                                {[
+                                    { label: "Diagnosis", value: patientData.metadata?.primaryDiagnosis || "Major Depressive Disorder" },
+                                    { label: "Assigned Staff", value: patientData.assignedStaff ? `Dr. ${patientData.assignedStaff.lastName}` : "Unassigned" },
+                                    { label: "Admitted", value: new Date(patientData.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) },
+                                    { label: "Sessions", value: `${patientData.metadata?.totalSessions || "14"} total` },
+                                    { label: "Blood Group", value: patientData.metadata?.bloodGroup || "O+" },
+                                ].map((s, idx) => (
+                                    <div key={idx} style={{ padding: "0 10px" }}>
+                                        <div style={{ fontSize: 8, fontFamily: "'Space Mono', monospace", color: "var(--muted)", textTransform: "uppercase", marginBottom: 6, letterSpacing: "0.05em" }}>{s.label}</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg)" }}>{s.value}</div>
+                                    </div>
+                                ))}
                             </div>
-                        </div>
-
-                        {/* Stat row */}
-                        <div
-                            style={{
-                                display: "flex",
-                                gap: 24,
-                                marginTop: 16,
-                                paddingTop: 16,
-                                borderTop: "1px solid var(--border)",
-                            }}
-                        >
-                            {[
-                                { label: "Diagnosis", value: patientData.diagnosis },
-                                { label: "Assigned Staff", value: patientData.assignedStaff },
-                                { label: "Admitted", value: patientData.admittedOn },
-                                { label: "Sessions", value: `${patientData.sessions} total` },
-                                { label: "Blood Group", value: patientData.bloodGroup },
-                            ].map((item) => (
-                                <div key={item.label} style={{ minWidth: 0 }}>
-                                    <div
-                                        style={{
-                                            fontFamily: "'Space Mono', monospace",
-                                            fontSize: 9,
-                                            color: "var(--muted)",
-                                            letterSpacing: "0.08em",
-                                            textTransform: "uppercase",
-                                            marginBottom: 3,
-                                        }}
-                                    >
-                                        {item.label}
-                                    </div>
-                                    <div
-                                        style={{
-                                            fontSize: 13,
-                                            fontWeight: 600,
-                                            color: "var(--fg)",
-                                            whiteSpace: "nowrap",
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                        }}
-                                    >
-                                        {item.value}
-                                    </div>
-                                </div>
-                            ))}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div
-                style={{
-                    display: "flex",
-                    gap: 2,
-                    marginBottom: 20,
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 11,
-                    padding: 4,
-                    width: "fit-content",
-                }}
-            >
-                {tabs.map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        style={{
-                            padding: "8px 18px",
-                            borderRadius: 8,
-                            border: "none",
-                            cursor: "pointer",
-                            fontSize: 13,
-                            fontWeight: 700,
-                            fontFamily: "'Nunito', sans-serif",
-                            background: activeTab === tab ? "var(--primary)" : "transparent",
-                            color: activeTab === tab ? "#fff" : "var(--muted)",
-                            transition: "all 0.18s",
-                        }}
-                    >
-                        {tab}
-                    </button>
+            <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 11, padding: 4, width: "fit-content" }}>
+                {["Overview", "Programs", "Sessions", "Documents"].map(t => (
+                    <button key={t} onClick={() => setActiveTab(t)} style={{ padding: "8px 18px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: activeTab === t ? "var(--primary)" : "transparent", color: activeTab === t ? "#fff" : "var(--muted)" }}>{t}</button>
                 ))}
             </div>
 
-            {/* Tab: Overview */}
             {activeTab === "Overview" && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                    {/* Contact Info */}
-                    <div className="card">
-                        <div className="card-head">
-                            <div className="card-title">Contact Information</div>
+                    <div className="card" style={{ padding: 0 }}>
+                        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
+                            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "var(--fg)" }}>Contact Information</h3>
                         </div>
-                        <div style={{ padding: "16px 20px" }}>
+                        <div style={{ padding: "12px 24px 24px" }}>
                             {[
-                                { icon: "📞", label: "Phone", value: patientData.phone },
-                                { icon: "📧", label: "Email", value: patientData.email },
-                                { icon: "🏠", label: "Address", value: patientData.address },
-                                { icon: "🩸", label: "Blood Group", value: patientData.bloodGroup },
-                                { icon: "⚠️", label: "Allergies", value: patientData.allergies },
-                            ].map((row) => (
-                                <div
-                                    key={row.label}
-                                    style={{
-                                        display: "flex",
-                                        gap: 12,
-                                        padding: "10px 0",
-                                        borderBottom: "1px solid var(--border)",
-                                    }}
-                                >
-                  <span style={{ fontSize: 16, width: 22, textAlign: "center", flexShrink: 0 }}>
-                    {row.icon}
-                  </span>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div
-                                            style={{
-                                                fontFamily: "'Space Mono', monospace",
-                                                fontSize: 9,
-                                                color: "var(--muted)",
-                                                letterSpacing: "0.06em",
-                                                textTransform: "uppercase",
-                                                marginBottom: 2,
-                                            }}
-                                        >
-                                            {row.label}
-                                        </div>
-                                        <div style={{ fontSize: 13, color: "var(--fg)", fontWeight: 500 }}>
-                                            {row.value}
-                                        </div>
+                                { icon: "📞", label: "Phone", value: patientData.phone || "0803 111 2233" },
+                                { icon: "📧", label: "Email", value: patientData.email || "amara.okafor@gmail.com" },
+                                { icon: "🏠", label: "Address", value: patientData.address || "14 Aba Road, Wuse 2, Abuja" },
+                                { icon: "🩸", label: "Blood Group", value: patientData.metadata?.bloodGroup || "O+" },
+                                { icon: "⚠️", label: "Allergies", value: patientData.metadata?.allergies || "Penicillin" },
+                            ].map((item, i) => (
+                                <div key={i} style={{ display: "flex", gap: 16, padding: "16px 0", borderBottom: i === 4 ? "none" : "1px solid var(--border-light)" }}>
+                                    <div style={{ fontSize: 20, width: 24, display: "flex", justifyContent: "center" }}>{item.icon}</div>
+                                    <div>
+                                        <div style={{ fontSize: 8, fontFamily: "'Space Mono', monospace", color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>{item.label}</div>
+                                        <div style={{ fontSize: 14, color: "var(--fg)", fontWeight: 500 }}>{item.value}</div>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Emergency Contacts */}
-                    <div className="card">
-                        <div className="card-head">
-                            <div className="card-title">Emergency Contacts</div>
-                            <button
-                                style={{
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    border: "1.5px solid var(--border)",
-                                    background: "var(--card)",
-                                    color: "var(--primary)",
-                                    padding: "5px 11px",
-                                    borderRadius: 7,
-                                    cursor: "pointer",
-                                    fontFamily: "'Nunito', sans-serif",
-                                }}
-                            >
-                                + Add
-                            </button>
-                        </div>
-                        <div>
-                            {emergencyContacts.map((ec, i) => (
-                                <div
-                                    key={i}
-                                    style={{
-                                        padding: "14px 20px",
-                                        borderBottom:
-                                            i < emergencyContacts.length - 1 ? "1px solid var(--border)" : "none",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 12,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            width: 36,
-                                            height: 36,
-                                            borderRadius: 10,
-                                            background: "var(--primary-light)",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            fontFamily: "'Fraunces', serif",
-                                            fontSize: 13,
-                                            fontWeight: 700,
-                                            color: "var(--primary)",
-                                        }}
-                                    >
-                                        {ec.name
-                                            .split(" ")
-                                            .slice(0, 2)
-                                            .map((w) => w[0])
-                                            .join("")}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--fg)" }}>
-                                            {ec.name}
-                                        </div>
-                                        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 1 }}>
-                                            {ec.relationship} · {ec.phone}
-                                        </div>
-                                    </div>
-                                    <button
-                                        style={{
-                                            background: "none",
-                                            border: "none",
-                                            cursor: "pointer",
-                                            fontSize: 13,
-                                            color: "var(--muted)",
-                                            padding: 4,
-                                        }}
-                                    >
-                                        ✏️
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Clinical Notes */}
-                        <div
-                            style={{
-                                margin: "0 20px 20px",
-                                marginTop: 4,
-                                background: "var(--warning-light)",
-                                border: "1px solid #f5c58a",
-                                borderRadius: 10,
-                                padding: "12px 14px",
-                            }}
-                        >
-                            <div
-                                style={{
-                                    fontFamily: "'Space Mono', monospace",
-                                    fontSize: 9,
-                                    color: "var(--warning)",
-                                    letterSpacing: "0.08em",
-                                    textTransform: "uppercase",
-                                    marginBottom: 6,
-                                    fontWeight: 700,
-                                }}
-                            >
-                                Clinical Notes
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                        <div className="card" style={{ padding: 0 }}>
+                            <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "var(--fg)" }}>Emergency Contacts</h3>
+                                <button style={{ padding: "4px 12px", border: "1.5px solid var(--border)", borderRadius: 6, background: "var(--card)", fontSize: 12, fontWeight: 700, color: "var(--fg-mid)", cursor: "pointer" }}>+ Add</button>
                             </div>
-                            <div style={{ fontSize: 13, color: "var(--fg-mid)", lineHeight: 1.6 }}>
-                                {patientData.notes}
+                            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+                                {[
+                                    { initials: "CO", name: "Chukwuemeka Okafor", relation: "Spouse", phone: "0803 999 1122" },
+                                    { initials: "NO", name: "Ngozi Okafor", relation: "Sister", phone: "0803 888 4455" },
+                                ].map((contact, i) => (
+                                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                                            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#E6F4F2", color: "#2C7A6E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>{contact.initials}</div>
+                                            <div>
+                                                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--fg)" }}>{contact.name}</div>
+                                                <div style={{ fontSize: 12, color: "var(--muted)" }}>{contact.relation} · {contact.phone}</div>
+                                            </div>
+                                        </div>
+                                        <button style={{ background: "none", border: "none", color: "#D98326", cursor: "pointer", fontSize: 16 }}>✏️</button>
+                                    </div>
+                                ))}
+
+                                <div style={{ marginTop: 8, padding: 16, background: "#FEF3E2", borderRadius: 12, border: "1px solid #D9832620" }}>
+                                    <div style={{ fontSize: 8, fontFamily: "'Space Mono', monospace", color: "#D98326", textTransform: "uppercase", marginBottom: 8, letterSpacing: "0.05em" }}>Clinical Notes</div>
+                                    <div style={{ fontSize: 13, color: "#D98326", lineHeight: 1.5, fontWeight: 500 }}>
+                                        Patient shows consistent engagement. PHQ-9 score improving. Monitor for medication compliance.
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Tab: Programs (Enrollments) */}
             {activeTab === "Programs" && (
-                <div>
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginBottom: 16,
-                        }}
-                    >
-                        <div>
-              <span style={{ fontSize: 13.5, color: "var(--fg-mid)", fontWeight: 500 }}>
-                {enrollments.length} enrolled programs
-              </span>
-                        </div>
-                        <button
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                padding: "9px 16px",
-                                background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-mid) 100%)",
-                                border: "none",
-                                borderRadius: 9,
-                                color: "#fff",
-                                fontSize: 13,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                fontFamily: "'Nunito', sans-serif",
-                                boxShadow: "0 2px 8px rgba(44,122,110,0.25)",
-                            }}
-                        >
-                            <span style={{ fontSize: 16 }}>+</span>
-                            Enrol in Program
-                        </button>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        {enrollments.map((enr) => (
-                            <div
-                                key={enr.id}
-                                style={{
-                                    background: "var(--card)",
-                                    border: "1px solid var(--border)",
-                                    borderRadius: 14,
-                                    padding: "20px 24px",
-                                    display: "flex",
-                                    gap: 20,
-                                    alignItems: "flex-start",
-                                }}
-                            >
-                                {/* Left: icon */}
-                                <div
-                                    style={{
-                                        width: 44,
-                                        height: 44,
-                                        borderRadius: 11,
-                                        background:
-                                            enr.status === "completed"
-                                                ? "var(--success-light)"
-                                                : "var(--primary-light)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        fontSize: 20,
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    {enr.status === "completed" ? "✅" : "📋"}
-                                </div>
-
-                                {/* Center: details */}
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
-                                        <div>
-                                            <div
-                                                style={{
-                                                    fontFamily: "'Fraunces', serif",
-                                                    fontSize: 16,
-                                                    fontWeight: 700,
-                                                    color: "var(--fg)",
-                                                    marginBottom: 4,
-                                                }}
-                                            >
-                                                {enr.program}
-                                            </div>
-                                            <div style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--muted)" }}>
-                        <span>
-                          <span style={{ fontWeight: 700, color: "var(--fg-mid)" }}>Therapist:</span> {enr.therapist}
-                        </span>
-                                                <span>
-                          <span style={{ fontWeight: 700, color: "var(--fg-mid)" }}>Started:</span> {enr.startDate}
-                        </span>
-                                                <span>
-                          <span style={{ fontWeight: 700, color: "var(--fg-mid)" }}>Ends:</span> {enr.endDate}
-                        </span>
-                                            </div>
-                                        </div>
-                                        <span
-                                            className={`chip ${
-                                                enr.status === "completed" ? "chip-active" : "chip-progress"
-                                            }`}
-                                        >
-                      {enr.status === "completed" ? "Completed" : "In Progress"}
-                    </span>
-                                    </div>
-
-                                    {/* Progress bar */}
-                                    <div>
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "space-between",
-                                                marginBottom: 5,
-                                            }}
-                                        >
-                      <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                        Sessions: <strong style={{ color: "var(--fg)" }}>{enr.sessions}</strong>
-                      </span>
-                                            <span
-                                                style={{
-                                                    fontFamily: "'Space Mono', monospace",
-                                                    fontSize: 10,
-                                                    fontWeight: 700,
-                                                    color: progressColor(enr.progress),
-                                                }}
-                                            >
-                        {enr.progress}%
-                      </span>
-                                        </div>
-                                        <div
-                                            style={{
-                                                height: 6,
-                                                background: "var(--border)",
-                                                borderRadius: 6,
-                                                overflow: "hidden",
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    height: "100%",
-                                                    width: `${enr.progress}%`,
-                                                    background: progressColor(enr.progress),
-                                                    borderRadius: 6,
-                                                    transition: "width 0.6s ease",
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Right: action */}
-                                {enr.status !== "completed" && (
-                                    <div>
-                                        <button
-                                            style={{
-                                                padding: "7px 14px",
-                                                border: "1.5px solid var(--danger-light)",
-                                                background: "var(--danger-light)",
-                                                borderRadius: 8,
-                                                color: "var(--danger)",
-                                                fontSize: 12,
-                                                fontWeight: 700,
-                                                cursor: "pointer",
-                                                fontFamily: "'Nunito', sans-serif",
-                                                whiteSpace: "nowrap",
-                                                transition: "all 0.13s",
-                                            }}
-                                        >
-                                            Discharge
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Tab: Sessions */}
-            {activeTab === "Sessions" && (
                 <div className="card">
-                    <div className="card-head">
-                        <div className="card-title">Session History</div>
-                        <div className="card-meta">LAST 3 SESSIONS</div>
-                    </div>
                     <table className="data-table">
-                        <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Session Type</th>
-                            <th>Therapist</th>
-                            <th>Duration</th>
-                            <th>Mood</th>
-                            <th>Notes</th>
-                        </tr>
-                        </thead>
+                        <thead><tr><th>Program</th><th>Type</th><th>Enrolled Date</th><th>Status</th></tr></thead>
                         <tbody>
-                        {recentSessions.map((s, i) => (
-                            <tr key={i}>
-                                <td><span className="td-mono">{s.date}</span></td>
-                                <td><span className="td-text">{s.type}</span></td>
-                                <td><span className="td-text">{s.therapist}</span></td>
-                                <td><span className="td-mono">{s.duration}</span></td>
-                                <td>
-                    <span
-                        style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: moodColorMap[s.mood] || "var(--muted)",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                        }}
-                    >
-                      <span
-                          style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: "50%",
-                              background: moodColorMap[s.mood] || "var(--muted)",
-                              display: "inline-block",
-                          }}
-                      />
-                        {s.mood}
-                    </span>
-                                </td>
-                                <td>
-                    <span style={{ fontSize: 12.5, color: "var(--muted)", maxWidth: 220, display: "block" }}>
-                      {s.notes}
-                    </span>
-                                </td>
-                            </tr>
-                        ))}
+                            {(patientData.enrollments || []).length === 0 ? <tr><td colSpan={4} style={{ textAlign: "center", padding: 40 }}>Not enrolled in any programs.</td></tr> : patientData.enrollments.map((e: any) => (
+                                <tr key={e.id}>
+                                    <td><Link href={`/programs/${e.program.id}`} style={{ fontWeight: 700, color: "var(--primary)" }}>{e.program.name}</Link></td>
+                                    <td><span className="td-mono">{e.program.programType}</span></td>
+                                    <td><span className="td-mono">{new Date(e.enrolledAt).toLocaleDateString()}</span></td>
+                                    <td><span className={`chip ${statusChipMap[e.status]}`}>{e.status}</span></td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
-                    <div className="pagination">
-                        <button className="page-btn disabled">« Prev</button>
-                        <button className="page-btn active">1</button>
-                        <button className="page-btn">2</button>
-                        <button className="page-btn">Next »</button>
-                    </div>
                 </div>
             )}
 
-            {/* Tab: Documents */}
+            {activeTab === "Notes" && (
+                <div className="card">
+                    <div className="card-head">
+                        <div className="card-title">Clinical Notes</div>
+                        <button onClick={() => setShowNoteModal(true)} style={{ padding: "6px 12px", border: "none", borderRadius: 6, background: "var(--primary)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>+ Add Note</button>
+                    </div>
+                    {fetchingNotes ? <div style={{ padding: 40, textAlign: "center" }}>Fetching notes...</div> : notes.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>No notes recorded.</div> : (
+                        <table className="data-table">
+                            <thead><tr><th>Date</th><th>Type</th><th>Status</th><th>Author</th><th style={{ textAlign: "right" }}>Actions</th></tr></thead>
+                            <tbody>
+                                {notes.map(n => (
+                                    <tr key={n.id}>
+                                        <td className="td-mono">{new Date(n.createdAt).toLocaleDateString()}</td>
+                                        <td><span className="td-text">{n.noteType}</span></td>
+                                        <td><span className={`chip ${n.status === "SIGNED" ? "chip-active" : "chip-pending"}`}>{n.status}</span></td>
+                                        <td><span className="td-text">{n.author.firstName} {n.author.lastName}</span></td>
+                                        <td style={{ textAlign: "right" }}><button style={{ padding: "4px 8px", border: "1.5px solid var(--border)", borderRadius: 6, background: "var(--card)", cursor: "pointer", fontSize: 11 }}>View</button></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
+
             {activeTab === "Documents" && (
                 <div className="card">
                     <div className="card-head">
-                        <div className="card-title">Patient Documents</div>
-                        <button
-                            style={{
-                                fontSize: 12,
-                                fontWeight: 700,
-                                border: "1.5px solid var(--border)",
-                                background: "var(--card)",
-                                color: "var(--primary)",
-                                padding: "6px 13px",
-                                borderRadius: 7,
-                                cursor: "pointer",
-                                fontFamily: "'Nunito', sans-serif",
-                            }}
-                        >
-                            + Upload Document
-                        </button>
+                        <div className="card-title">Files & Documents</div>
+                        <label style={{ padding: "6px 12px", border: "none", borderRadius: 6, background: "var(--primary)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>
+                            Upload <input type="file" style={{ display: "none" }} onChange={handleFileUpload} />
+                        </label>
                     </div>
-                    <div style={{ padding: 40, textAlign: "center" }}>
-                        <div style={{ fontSize: 36, marginBottom: 12 }}>📁</div>
-                        <div
-                            style={{
-                                fontFamily: "'Fraunces', serif",
-                                fontSize: 17,
-                                fontWeight: 600,
-                                color: "var(--fg)",
-                                marginBottom: 6,
-                            }}
-                        >
-                            No documents yet
-                        </div>
-                        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
-                            Upload consent forms, referral letters, or any patient documents
-                        </div>
-                        <button
-                            style={{
-                                padding: "9px 20px",
-                                background: "var(--primary-light)",
-                                border: "1.5px solid var(--primary)",
-                                borderRadius: 9,
-                                color: "var(--primary)",
-                                fontSize: 13,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                fontFamily: "'Nunito', sans-serif",
-                            }}
-                        >
-                            Create Folder
-                        </button>
-                    </div>
+                    {fetchingDocs ? <div style={{ padding: 40, textAlign: "center" }}>Fetching documents...</div> : documents.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>No documents uploaded.</div> : (
+                        <table className="data-table">
+                            <thead><tr><th>Name</th><th>Size</th><th>Uploaded</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {documents.map(d => (
+                                    <tr key={d.id}>
+                                        <td style={{ fontWeight: 600 }}>{d.originalName}</td>
+                                        <td className="td-mono">{(d.size / 1024).toFixed(1)} KB</td>
+                                        <td className="td-mono">{new Date(d.createdAt).toLocaleDateString()}</td>
+                                        <td>
+                                            <div style={{ display: "flex", gap: 8 }}>
+                                                <a href={`http://localhost:5000${d.fileUrl}`} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", fontWeight: 700, fontSize: 12 }}>Download</a>
+                                                <button onClick={() => handleDeleteDoc(d.id)} style={{ color: "var(--danger)", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
             )}
         </>

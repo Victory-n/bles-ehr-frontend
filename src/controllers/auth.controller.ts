@@ -1,172 +1,90 @@
 import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
-import prisma from "../config/prisma";
-import { generateTokenPair } from "../utils/jwt";
-import { sendSuccess, sendError, JsonValue } from "../utils/response";
-import { validateRegisterInput, validateLoginInput } from "../utils/validation";
-import {SafeAdmin} from "@/src/types";
+import { prisma } from "../config/prisma";
+import { sendSuccess, sendError } from "../utils/response";
+import { signAccessToken, signRefreshToken } from "../utils/jwt";
 
-// Widen a plain object to satisfy the `data` map constraint
-function toData(obj: unknown): Record<string, JsonValue> {
-    return obj as Record<string, JsonValue>;
-}
-
-// Strip password from a Prisma Admin row
-function toSafeAdmin(admin: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    role: string;
-    isActive: boolean;
-    lastLoginAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-}): SafeAdmin {
-    return {
-        id:          admin.id,
-        firstName:   admin.firstName,
-        lastName:    admin.lastName,
-        email:       admin.email,
-        role:        admin.role as SafeAdmin["role"],   // "SUPER_ADMIN" | "STAFF" | "AUDITOR"
-        isActive:    admin.isActive,
-        lastLoginAt: admin.lastLoginAt?.toISOString() ?? null,
-        createdAt:   admin.createdAt.toISOString(),
-        updatedAt:   admin.updatedAt.toISOString(),
-    };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  POST /auth/admin/register
-// ─────────────────────────────────────────────────────────────────────────────
-export async function registerAdmin(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-): Promise<void> {
+export const login = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { firstName, lastName, email, password } = req.body as {
-            firstName?: unknown;
-            lastName?:  unknown;
-            email?:     unknown;
-            password?:  unknown;
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return sendError({ res, statusCode: 400, message: "Please provide email and password" });
+        }
+
+        // Find staff
+        const staff = await prisma.staff.findUnique({
+            where: { email },
+        });
+
+        if (!staff || !staff.isActive) {
+            return sendError({ res, statusCode: 401, message: "Invalid email or password" });
+        }
+
+        // Verify password
+        const isPasswordCorrect = await bcrypt.compare(password, staff.passwordHash);
+
+        if (!isPasswordCorrect) {
+            return sendError({ res, statusCode: 401, message: "Invalid email or password" });
+        }
+
+        // Handle PIN setup flow — SUPER_ADMIN bypasses this entirely.
+        // Only STAFF and AUDITOR roles are required to set up a PIN.
+        if (staff.requiresPinSetup && staff.role !== "SUPER_ADMIN") {
+            return sendSuccess({
+                res,
+                message: "PIN setup required. Please set up your 6-digit PIN.",
+                data: {
+                    requiresPinSetup: true,
+                }
+            });
+        }
+
+        // Generate tokens
+        const accessPayload = { sub: staff.id, email: staff.email, role: staff.role };
+        const refreshPayload = { sub: staff.id };
+
+        const accessToken = signAccessToken(accessPayload);
+        const refreshToken = signRefreshToken(refreshPayload);
+
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax" as const,
+            path: "/",
         };
 
-        // 1. Validate
-        const { valid, errors } = validateRegisterInput({ firstName, lastName, email, password });
-        if (!valid) {
-            sendError({ res, statusCode: 422, message: "Validation failed.", errors });
-            return;
-        }
+        // 15 minutes for access token, 7 days for refresh token
+        res.cookie("accessToken", accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+        res.cookie("refreshToken", refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-        const cleanEmail = (email as string).toLowerCase().trim();
-
-        // 2. Duplicate check
-        const existing = await prisma.admin.findUnique({ where: { email: cleanEmail } });
-        if (existing) {
-            sendError({
-                res,
-                statusCode: 409,
-                message: "An account with this email address already exists.",
-                errors: { email: "Email is already registered." },
-            });
-            return;
-        }
-
-        // 3. Hash password
-        const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS ?? "12", 10);
-        const hashedPassword = await bcrypt.hash(password as string, saltRounds);
-
-        // 4. Insert row — new accounts default to STAFF role with no permissions.
-        //    SUPER_ADMIN must explicitly grant permissions via the permissions API.
-        const admin = await prisma.admin.create({
-            data: {
-                firstName: (firstName as string).trim(),
-                lastName:  (lastName as string).trim(),
-                email:     cleanEmail,
-                password:  hashedPassword,
-                // role defaults to STAFF as defined in schema
-            },
+        // Update last login
+        await prisma.staff.update({
+            where: { id: staff.id },
+            data: { lastLoginAt: new Date() },
         });
 
-        // 5. Respond (no password)
+        const safeStaff = {
+            id: staff.id,
+            firstName: staff.firstName,
+            lastName: staff.lastName,
+            email: staff.email,
+            role: staff.role,
+        };
+
         sendSuccess({
             res,
-            statusCode: 201,
-            message: "Admin account created successfully.",
-            data: { admin: toData(toSafeAdmin(admin)) },
-        });
-    } catch (err) {
-        next(err);
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  POST /auth/admin/login
-// ─────────────────────────────────────────────────────────────────────────────
-export async function loginAdmin(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-): Promise<void> {
-    try {
-        const { email, password } = req.body as { email?: unknown; password?: unknown };
-
-        // 1. Validate
-        const { valid, errors } = validateLoginInput({ email, password });
-        if (!valid) {
-            sendError({ res, statusCode: 422, message: "Validation failed.", errors });
-            return;
-        }
-
-        const cleanEmail = (email as string).toLowerCase().trim();
-
-        // 2. Lookup — select password explicitly
-        const admin = await prisma.admin.findUnique({ where: { email: cleanEmail } });
-        if (!admin) {
-            // Generic message prevents user enumeration
-            sendError({ res, statusCode: 401, message: "Invalid email or password." });
-            return;
-        }
-
-        // 3. Active check
-        if (!admin.isActive) {
-            sendError({
-                res,
-                statusCode: 403,
-                message: "Your account has been deactivated. Please contact your administrator.",
-            });
-            return;
-        }
-
-        // 4. Password check
-        const passwordOk = await bcrypt.compare(password as string, admin.password);
-        if (!passwordOk) {
-            sendError({ res, statusCode: 401, message: "Invalid email or password." });
-            return;
-        }
-
-        // 5. Issue tokens
-        const { accessToken, refreshToken } = generateTokenPair(admin.id, admin.email, admin.role);
-
-        // 6. Update lastLoginAt (fire-and-forget)
-        prisma.admin.update({
-            where: { id: admin.id },
-            data:  { lastLoginAt: new Date() },
-        }).catch(() => { /* non-critical */ });
-
-        // 7. Respond
-        sendSuccess({
-            res,
-            statusCode: 200,
             message: "Login successful.",
             data: {
-                user:         toData(toSafeAdmin(admin)),
-                accessToken:  accessToken  as unknown as JsonValue,
-                refreshToken: refreshToken as unknown as JsonValue,
+                user: safeStaff,
+                accessToken,
+                refreshToken,
             },
         });
-    } catch (err) {
-        next(err);
+    } catch (error) {
+        next(error);
     }
-}
+};
+
+// TODO: Implement `setupPin` endpoint here as requested later.
+// export const setupPin = async (req: Request, res: Response, next: NextFunction) => { ... }

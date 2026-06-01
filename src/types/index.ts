@@ -1,12 +1,12 @@
 import { Request } from "express";
 
-// ─── Admin roles ──────────────────────────────────────────────────────────────
+// ─── Staff roles ──────────────────────────────────────────────────────────────
 // SUPER_ADMIN  : full system access, bypasses all permission checks.
-// STAFF        : granular access controlled via AdminPermission rows.
+// STAFF        : granular access controlled via StaffPermission rows.
 // AUDITOR      : external/internal reviewer; defaults to read-only but
 //                SUPER_ADMIN may grant additional permissions via the
-//                AdminPermission table.
-export type AdminRole = "SUPER_ADMIN" | "STAFF" | "AUDITOR";
+//                StaffPermission table.
+export type StaffRole = "SUPER_ADMIN" | "STAFF" | "AUDITOR";
 
 // ─── Resources ────────────────────────────────────────────────────────────────
 // Every protected area of the system maps to one of these values.
@@ -37,9 +37,9 @@ export const PERMISSION_LEVELS: Record<PermissionLevel, PermissionAction[]> = {
 // ─── JWT payloads ─────────────────────────────────────────────────────────────
 
 export interface JwtAccessPayload {
-    sub: string;      // admin.id (UUID)
+    sub: string;      // staff.id (UUID)
     email: string;
-    role: AdminRole;
+    role: StaffRole;
     type: "access";
 }
 
@@ -51,32 +51,32 @@ export interface JwtRefreshPayload {
 // ─── Authenticated request ────────────────────────────────────────────────────
 
 export interface AuthRequest extends Request {
-    admin?: {
+    staff?: {
         id: string;
         email: string;
-        role: AdminRole;
+        role: StaffRole;
     };
 }
 
-// ─── Safe admin shape returned to clients (never includes password) ───────────
+// ─── Safe staff shape returned to clients (never includes password) ───────────
 
-export interface SafeAdmin {
+export interface SafeStaff {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
-    role: AdminRole;
+    role: StaffRole;
     isActive: boolean;
     lastLoginAt: string | null;
     createdAt: string;
     updatedAt: string;
 }
 
-// ─── Permission row shape (mirrors the AdminPermission DB model) ──────────────
+// ─── Permission row shape (mirrors the StaffPermission DB model) ──────────────
 
-export interface IAdminPermission {
+export interface IStaffPermission {
     id: string;
-    adminId: string;
+    staffId: string;
     resource: Resource;
     action: PermissionAction;
 }

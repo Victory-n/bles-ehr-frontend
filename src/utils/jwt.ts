@@ -1,51 +1,27 @@
-import jwt, { SignOptions } from "jsonwebtoken";
-import { AdminRole, JwtAccessPayload, JwtRefreshPayload } from "@/src/type";
+import jwt from "jsonwebtoken";
+import { JwtAccessPayload, JwtRefreshPayload } from "../types";
 
-function requireEnv(key: string): string {
-    const val = process.env[key];
-    if (!val) throw new Error(`Environment variable ${key} is not set.`);
-    return val;
-}
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "fallback_access_secret";
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "fallback_refresh_secret";
+const ACCESS_EXPIRES_IN = (process.env.JWT_ACCESS_EXPIRES_IN || "15m") as any;
+const REFRESH_EXPIRES_IN = (process.env.JWT_REFRESH_EXPIRES_IN || "7d") as any;
 
-// ─── Generate ─────────────────────────────────────────────────────────────────
+export const signAccessToken = (payload: Omit<JwtAccessPayload, "type">): string => {
+    return jwt.sign({ ...payload, type: "access" }, ACCESS_SECRET, {
+        expiresIn: ACCESS_EXPIRES_IN,
+    });
+};
 
-export function generateAccessToken(
-    adminId: string,
-    email: string,
-    role: AdminRole
-): string {
-    const payload: JwtAccessPayload = { sub: adminId, email, role, type: "access" };
-    const expiresIn = (process.env.JWT_ACCESS_EXPIRES_IN ?? "15m") as SignOptions["expiresIn"];
-    return jwt.sign(payload, requireEnv("JWT_ACCESS_SECRET"), { expiresIn });
-}
+export const signRefreshToken = (payload: Omit<JwtRefreshPayload, "type">): string => {
+    return jwt.sign({ ...payload, type: "refresh" }, REFRESH_SECRET, {
+        expiresIn: REFRESH_EXPIRES_IN,
+    });
+};
 
-export function generateRefreshToken(adminId: string): string {
-    const payload: JwtRefreshPayload = { sub: adminId, type: "refresh" };
-    const expiresIn = (process.env.JWT_REFRESH_EXPIRES_IN ?? "7d") as SignOptions["expiresIn"];
-    return jwt.sign(payload, requireEnv("JWT_REFRESH_SECRET"), { expiresIn });
-}
+export const verifyAccessToken = (token: string): JwtAccessPayload => {
+    return jwt.verify(token, ACCESS_SECRET) as JwtAccessPayload;
+};
 
-export function generateTokenPair(
-    adminId: string,
-    email: string,
-    role: AdminRole
-): { accessToken: string; refreshToken: string } {
-    return {
-        accessToken:  generateAccessToken(adminId, email, role),
-        refreshToken: generateRefreshToken(adminId),
-    };
-}
-
-// ─── Verify ───────────────────────────────────────────────────────────────────
-
-export function verifyAccessToken(token: string): JwtAccessPayload {
-    const decoded = jwt.verify(token, requireEnv("JWT_ACCESS_SECRET")) as JwtAccessPayload;
-    if (decoded.type !== "access") throw new Error("Invalid token type.");
-    return decoded;
-}
-
-export function verifyRefreshToken(token: string): JwtRefreshPayload {
-    const decoded = jwt.verify(token, requireEnv("JWT_REFRESH_SECRET")) as JwtRefreshPayload;
-    if (decoded.type !== "refresh") throw new Error("Invalid token type.");
-    return decoded;
-}
+export const verifyRefreshToken = (token: string): JwtRefreshPayload => {
+    return jwt.verify(token, REFRESH_SECRET) as JwtRefreshPayload;
+};

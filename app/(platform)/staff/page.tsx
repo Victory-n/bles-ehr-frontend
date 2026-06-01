@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 
 /* ─── Mock Data ─── */
@@ -206,19 +206,51 @@ function AddStaffModal({ onClose, onSuccess }: {
         return errs;
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         const errs = validate();
         if (Object.keys(errs).length) { setErrors(errs); return; }
         setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setLoading(false);
-            onSuccess({
-                staffId: `STF-${Math.floor(100 + Math.random() * 900)}`,
-                email: form.email,
-                password: `Bl@${Math.random().toString(36).slice(2, 10).toUpperCase()}#1`,
+
+        const colorMap = ["#2C7A6E", "#6B5ED4", "#27A76A", "#D98326", "#4A9E91"];
+        const randomColor = colorMap[Math.floor(Math.random() * colorMap.length)];
+        const initials = `${form.firstName[0].toUpperCase()}${form.lastName[0].toUpperCase()}`;
+
+        try {
+            const res = await fetch("http://localhost:5000/staff", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                    firstName: form.firstName,
+                    lastName: form.lastName,
+                    email: form.email,
+                    role: "STAFF",
+                    metadata: {
+                        position: form.position,
+                        phone: form.phone,
+                        color: randomColor,
+                        initials: initials,
+                        assignedPatients: 0,
+                        sessionsMonth: 0,
+                        rating: 0,
+                    }
+                })
             });
-        }, 1400);
+            const data = await res.json();
+            if (res.ok) {
+                onSuccess({
+                    staffId: data.data.staff.id,
+                    email: form.email,
+                    password: data.data.tempPassword,
+                });
+            } else {
+                setErrors({ email: data.message || "Failed to create staff" });
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const field = (key: keyof typeof form, label: string, type = "text", placeholder = "") => (
@@ -460,10 +492,11 @@ function CredentialsModal({ creds, onClose }: {
 /* ─────────────────────────────────────
    SUSPEND / TERMINATE / RECALL CONFIRM MODAL
 ───────────────────────────────────── */
-function ActionConfirmModal({ staff, action, onClose }: {
+function ActionConfirmModal({ staff, action, onClose, onSuccess }: {
     staff: typeof mockStaff[0];
     action: "suspend" | "terminate" | "recall";
     onClose: () => void;
+    onSuccess?: () => void;
 }) {
     const [reason, setReason] = useState("");
     const [loading, setLoading] = useState(false);
@@ -486,10 +519,22 @@ function ActionConfirmModal({ staff, action, onClose }: {
         },
     }[action];
 
-    const handleAction = () => {
+    const handleAction = async () => {
         if (config.requireReason && !reason.trim()) return;
         setLoading(true);
-        setTimeout(() => { setLoading(false); onClose(); }, 1000);
+        if (action === "suspend" || action === "terminate") {
+            try {
+                await fetch(`http://localhost:5000/staff/${staff.id}`, {
+                    method: "DELETE",
+                    credentials: "include"
+                });
+                if (onSuccess) onSuccess();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+        setLoading(false);
+        onClose();
     };
 
     return (
@@ -846,7 +891,48 @@ function IssueQueryModal({ staff, onClose }: { staff: typeof mockStaff[0]; onClo
 type ModalType = "add" | "credentials" | "assign" | "roles" | "query" | "suspend" | "terminate" | "recall" | null;
 
 export default function StaffPage() {
+    const [staffData, setStaffData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchStaff = async () => {
+        setIsLoading(true);
+        try {
+            const res = await fetch("http://localhost:5000/staff", { credentials: "include" });
+            const result = await res.json();
+            if (res.ok) {
+                const formatted = result.data.map((s: any) => ({
+                    id: s.id,
+                    firstName: s.firstName,
+                    lastName: s.lastName,
+                    fullName: `${s.firstName} ${s.lastName}`,
+                    email: s.email,
+                    status: s.isActive ? "active" : "suspended",
+                    roles: [s.role],
+                    position: s.metadata?.position || "Staff",
+                    phone: s.metadata?.phone || "—",
+                    color: s.metadata?.color || "#2C7A6E",
+                    initials: s.metadata?.initials || `${s.firstName[0] || ""}${s.lastName[0] || ""}`.toUpperCase(),
+                    assignedPatients: s.metadata?.assignedPatients || 0,
+                    sessionsMonth: s.metadata?.sessionsMonth || 0,
+                    rating: s.metadata?.rating || 0.0,
+                    joinedDate: new Date(s.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+                    lastSeen: s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleString("en-GB") : "Never",
+                }));
+                setStaffData(formatted);
+            }
+        } catch (error) {
+            console.error("Failed to fetch staff", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchStaff();
+    }, []);
     const [activeTab, setActiveTab] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [modal, setModal] = useState<ModalType>(null);
     const [selectedStaff, setSelectedStaff] = useState<typeof mockStaff[0] | null>(null);
@@ -858,7 +944,7 @@ export default function StaffPage() {
         setModal(type);
     };
 
-    const filteredStaff = mockStaff.filter(s => {
+    const filteredStaff = staffData.filter(s => {
         if (activeTab === 0) return true;
         if (activeTab === 1) return s.status === "active";
         if (activeTab === 2) return s.status === "suspended";
@@ -866,11 +952,16 @@ export default function StaffPage() {
         return true;
     });
 
+        const totalPages = Math.ceil(filteredStaff.length / itemsPerPage) || 1;
+    const paginatedStaff = filteredStaff.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const showingStart = filteredStaff.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+    const showingEnd = Math.min(currentPage * itemsPerPage, filteredStaff.length);
+
     const kpis = [
-        { label: "Total Staff", value: "24", trend: "↑ 3", trendSub: "this month", color: "var(--primary)" },
-        { label: "Active Now", value: "19", trend: "↑ 2", trendSub: "vs last week", color: "var(--success)" },
-        { label: "Suspended", value: "3", trend: "↑ 1", trendSub: "pending review", color: "var(--warning)" },
-        { label: "Terminated", value: "2", trend: "—", trendSub: "this quarter", color: "var(--danger)" },
+        { label: "Total Staff", value: staffData.length.toString(), trend: "↑ 3", trendSub: "this month", color: "var(--primary)" },
+        { label: "Active Now", value: staffData.filter(s => s.status === "active").length.toString(), trend: "↑ 2", trendSub: "vs last week", color: "var(--success)" },
+        { label: "Suspended", value: staffData.filter(s => s.status === "suspended").length.toString(), trend: "↑ 1", trendSub: "pending review", color: "var(--warning)" },
+        { label: "Terminated", value: staffData.filter(s => s.status === "terminated").length.toString(), trend: "—", trendSub: "this quarter", color: "var(--danger)" },
     ];
 
     return (
@@ -879,7 +970,7 @@ export default function StaffPage() {
             {modal === "add" && (
                 <AddStaffModal
                     onClose={() => setModal(null)}
-                    onSuccess={creds => { setCredentials(creds); setModal("credentials"); }}
+                    onSuccess={creds => { setCredentials(creds); setModal("credentials"); fetchStaff(); }}
                 />
             )}
             {modal === "credentials" && credentials && (
@@ -895,7 +986,7 @@ export default function StaffPage() {
                 <IssueQueryModal staff={selectedStaff} onClose={() => setModal(null)} />
             )}
             {(modal === "suspend" || modal === "terminate" || modal === "recall") && selectedStaff && (
-                <ActionConfirmModal staff={selectedStaff} action={modal} onClose={() => setModal(null)} />
+                <ActionConfirmModal staff={selectedStaff} action={modal} onClose={() => setModal(null)} onSuccess={() => { setModal(null); fetchStaff(); }} />
             )}
 
             {/* close menus on outside click */}
@@ -956,7 +1047,7 @@ export default function StaffPage() {
                     <button
                         key={tab.label}
                         className={`filter-tab${activeTab === i ? " active" : ""}`}
-                        onClick={() => setActiveTab(i)}
+                        onClick={() => { setActiveTab(i); setCurrentPage(1); }}
                     >
                         {tab.label}
                         <span style={{ marginLeft: 6, fontFamily: "'Space Mono', monospace", fontSize: 10, opacity: 0.75 }}>
@@ -1001,11 +1092,19 @@ export default function StaffPage() {
                     </tr>
                     </thead>
                     <tbody>
-                    {filteredStaff.map((s, idx) => (
+                    {isLoading ? (
+                        <tr>
+                            <td colSpan={9} style={{ textAlign: "center", padding: "40px" }}>Loading staff members...</td>
+                        </tr>
+                    ) : paginatedStaff.length === 0 ? (
+                        <tr>
+                            <td colSpan={9} style={{ textAlign: "center", padding: "40px" }}>No staff members found.</td>
+                        </tr>
+                    ) : paginatedStaff.map((s, idx) => (
                         <tr key={s.id}>
                             <td>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "var(--muted)" }}>
-                    {String(idx + 1).padStart(2, "0")}
+                    {String((currentPage - 1) * itemsPerPage + idx + 1).padStart(2, "0")}
                   </span>
                             </td>
                             <td>
@@ -1047,7 +1146,7 @@ export default function StaffPage() {
                                                 color: "var(--primary)", background: "var(--primary-light)",
                                                 padding: "1px 7px", borderRadius: 4, fontWeight: 700,
                                                 display: "inline-block", marginTop: 2,
-                                            }}>{s.id}</div>
+                                            }}>STF-{s.id.split('-')[0].toUpperCase()}</div>
                                         </div>
                                     </div>
                                 </Link>
@@ -1057,7 +1156,7 @@ export default function StaffPage() {
                                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const, maxWidth: 200 }}>
                                     {s.roles.length === 0
                                         ? <span style={{ fontSize: 11.5, color: "var(--muted)", fontStyle: "italic" }}>No roles</span>
-                                        : s.roles.slice(0, 2).map(r => (
+                                        : s.roles.slice(0, 2).map((r: any) => (
                                             <span key={r} style={{
                                                 fontSize: 10.5, fontWeight: 700, padding: "2px 8px",
                                                 borderRadius: 20, background: "var(--purple-light)",
@@ -1137,14 +1236,32 @@ export default function StaffPage() {
                 </table>
 
                 <div className="pagination">
-                    <button className="page-btn disabled">« Prev</button>
-                    <button className="page-btn active">1</button>
-                    <button className="page-btn">2</button>
-                    <button className="page-btn">Next »</button>
+                    <button 
+                        className={`page-btn ${currentPage === 1 ? "disabled" : ""}`} 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                    >« Prev</button>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                        <button 
+                            key={p} 
+                            className={`page-btn ${currentPage === p ? "active" : ""}`}
+                            onClick={() => setCurrentPage(p)}
+                        >
+                            {p}
+                        </button>
+                    ))}
+                    
+                    <button 
+                        className={`page-btn ${currentPage === totalPages ? "disabled" : ""}`} 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                    >Next »</button>
+
                     <div style={{ marginLeft: "auto" }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: "var(--muted)" }}>
-              Showing 1–{filteredStaff.length} of {filteredStaff.length} members
-            </span>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: "var(--muted)" }}>
+                            Showing {showingStart}–{showingEnd} of {filteredStaff.length} members
+                        </span>
                     </div>
                 </div>
             </div>

@@ -30,10 +30,11 @@ export default function LoginPage() {
 
         setIsLoading(true);
         try {
-            // POST to our Next.js proxy route — never directly to the backend
-            const res = await fetch("/api/auth/login", {
+            // POST directly to the Express backend API
+            const res = await fetch("http://localhost:5000/auth/admin/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({
                     email: formData.email,
                     password: formData.password,
@@ -43,6 +44,12 @@ export default function LoginPage() {
             const data = await res.json();
 
             if (res.ok) {
+                // Handle PIN setup flow
+                if (data.data?.requiresPinSetup) {
+                    setError("Your account requires a PIN setup. Please contact the administrator or proceed to the PIN setup page (Pending implementation).");
+                    return;
+                }
+                
                 // Cookies are set server-side; just navigate to dashboard
                 router.push("/dashboard");
                 router.refresh(); // ensure server components re-read cookies

@@ -586,7 +586,7 @@ body {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
 }
 .card-head {
   padding: 16px 20px;
@@ -664,6 +664,8 @@ body {
   background: var(--surface);
   white-space: nowrap;
 }
+.card > .data-table:first-child th:first-child { border-top-left-radius: 13px; }
+.card > .data-table:first-child th:last-child { border-top-right-radius: 13px; }
 .data-table td {
   padding: 13px 16px;
   border-bottom: 1px solid var(--border);

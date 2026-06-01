@@ -1,3 +1,6 @@
+import os
+
+page_content = """\
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -40,12 +43,6 @@ function AddPatientModal({ onClose, onSuccess, staffList }: { onClose: () => voi
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async () => {
-        if (!form.firstName || !form.lastName) {
-            alert("First Name and Last Name are required.");
-            setStep(1);
-            return;
-        }
-
         setLoading(true);
         try {
             const res = await fetch("http://localhost:5000/patients", {
@@ -55,7 +52,7 @@ function AddPatientModal({ onClose, onSuccess, staffList }: { onClose: () => voi
                 body: JSON.stringify({
                     firstName: form.firstName,
                     lastName: form.lastName,
-                    dateOfBirth: form.dateOfBirth || null,
+                    dateOfBirth: form.dateOfBirth,
                     gender: form.gender,
                     phone: form.phone,
                     email: form.email,
@@ -72,17 +69,14 @@ function AddPatientModal({ onClose, onSuccess, staffList }: { onClose: () => voi
                     }
                 })
             });
-
-            const data = await res.json();
-
             if (res.ok) {
                 onSuccess();
             } else {
+                const data = await res.json();
                 alert(data.message || "Failed to add patient.");
             }
         } catch (err) {
-            console.error("Error creating patient:", err);
-            alert("A network error occurred. Please try again.");
+            console.error(err);
         } finally {
             setLoading(false);
         }
@@ -185,11 +179,11 @@ function AddPatientModal({ onClose, onSuccess, staffList }: { onClose: () => voi
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label">First Name</label>
-                                    <input className="form-input" type="text" placeholder="e.g. Amara" value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} required />
+                                    <input className="form-input" type="text" placeholder="e.g. Amara" value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} />
                                 </div>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label">Last Name</label>
-                                    <input className="form-input" type="text" placeholder="e.g. Okafor" value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})} required />
+                                    <input className="form-input" type="text" placeholder="e.g. Okafor" value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})} />
                                 </div>
                             </div>
 
@@ -577,7 +571,7 @@ export default function PatientsPage() {
                           fontWeight: 700,
                       }}
                   >
-                    {patient.folder?.folderNumber ?? patient.id.substring(0, 8)}
+                    {patient.id.substring(0, 8)}
                   </span>
                             </td>
 
@@ -743,3 +737,9 @@ export default function PatientsPage() {
         </>
     );
 }
+"""
+
+with open(r"C:\Users\VICTORY\Documents\GitHub\bles-ehr-frontend\app\(platform)\patients\page.tsx", "w", encoding="utf-8") as f:
+    f.write(page_content)
+
+print("Successfully wrote patients page.tsx")

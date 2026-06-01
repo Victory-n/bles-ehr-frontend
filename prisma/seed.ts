@@ -1,37 +1,43 @@
-import { PrismaClient, AdminRole } from "@prisma/client";
+import { prisma } from "../src/config/prisma";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+async function main() {
+    console.log("Seeding database...");
 
-async function main(): Promise<void> {
-    console.log("🌱  Seeding database…");
+    const superAdminEmail = "superadmin@brightlife.health";
 
-    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS ?? "12", 10);
-    const hashedPassword = await bcrypt.hash("Admin@123!", saltRounds);
+    const existingSuperAdmin = await prisma.staff.findUnique({
+        where: { email: superAdminEmail },
+    });
 
-    // Seed the one and only SUPER_ADMIN account.
-    // All other accounts are created as STAFF by default and must have
-    // permissions explicitly granted by the SUPER_ADMIN.
-    const superAdmin = await prisma.admin.upsert({
-        where:  { email: "superadmin@brightlife.health" },
-        update: {},
-        create: {
+    if (existingSuperAdmin) {
+        console.log("✅ Super Admin already exists.");
+        return;
+    }
+
+    const passwordHash = await bcrypt.hash("Admin@123!", 10);
+
+    await prisma.staff.create({
+        data: {
             firstName: "Super",
-            lastName:  "Admin",
-            email:     "superadmin@brightlife.health",
-            password:  hashedPassword,
-            role:      AdminRole.SUPER_ADMIN,
-            isActive:  true,
+            lastName: "Admin",
+            email: superAdminEmail,
+            passwordHash,
+            role: "SUPER_ADMIN",
+            isActive: true,
+            requiresPinSetup: false, // SUPER_ADMIN uses email + password only; no PIN required
         },
     });
 
-    console.log(`✅  Super admin seeded → ${superAdmin.email}`);
-    console.log("⚠️   Default password is Admin@123! — change it immediately!");
+    console.log("✅ Seeded initial Super Admin:");
+    console.log(`   Email: ${superAdminEmail}`);
+    console.log(`   Password: Admin@123!`);
+    console.log(`   (Please change this password/PIN on first login!)`);
 }
 
 main()
-    .catch((err) => {
-        console.error("❌  Seed failed:", err);
+    .catch((e) => {
+        console.error("❌ Seeding failed:", e);
         process.exit(1);
     })
     .finally(async () => {
