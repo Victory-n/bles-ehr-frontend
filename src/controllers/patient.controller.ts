@@ -19,7 +19,7 @@ export const createPatient = async (req: Request, res: Response, next: NextFunct
         }
 
         // Create patient + folder atomically so both always exist together
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx: { patientFolder: { count: () => any; create: (arg0: { data: { folderNumber: string; patientId: any; }; }) => any; }; patient: { create: (arg0: { data: { firstName: any; lastName: any; dateOfBirth: Date | null; gender: any; phone: any; email: any; address: any; assignedStaffId: any; metadata: any; status: string; }; }) => any; }; }) => {
             // Generate next folder number inside the transaction
             const folderCount = await tx.patientFolder.count();
             const folderNumber = `PAT-${String(folderCount + 1).padStart(4, "0")}`;
