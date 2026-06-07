@@ -6,9 +6,10 @@
     "dev:frontend": "next dev",
     "dev:backend": "npx tsx --watch src/server.ts",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
-    "build": "next build",
+    "build": "prisma migrate deploy && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
@@ -29,7 +30,8 @@
     "pg": "^8.20.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "validator": "^13.15.35"
+    "validator": "^13.15.35",
+    "prisma": "^7.8.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -1,8 +1,8 @@
 import "dotenv/config";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import {PrismaClient} from "@prisma/client/extension";
-// import { PrismaClient } from "@prisma/client";
+// import {PrismaClient} from "@prisma/client/extension";
+import { PrismaClient } from "@prisma/client";
 
 declare global {
     // eslint-disable-next-line no-var
