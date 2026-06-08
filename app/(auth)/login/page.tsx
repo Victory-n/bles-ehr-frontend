@@ -1,10 +1,32 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
-import Image from "next/image";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 
 type TabType = "staff" | "admin";
+
+/** Inline SVG logo — no external image dependency */
+function BrightLifeLogo({ size = 56 }: { size?: number }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={size}
+            height={size}
+            viewBox="0 0 160 160"
+            fill="none"
+            role="img"
+            aria-label="BrightLife EHR logo"
+        >
+            <circle cx="80" cy="80" r="72" stroke="#0f4c81" strokeWidth="6" fill="#ffffff" />
+            <circle cx="80" cy="80" r="69" fill="#e7eeff" />
+            {/* Medical cross */}
+            <rect x="63" y="44" width="14" height="72" rx="4" fill="#0f4c81" />
+            <rect x="44" y="63" width="72" height="14" rx="4" fill="#0f4c81" />
+            {/* Teal centre dot */}
+            <circle cx="80" cy="80" r="7" fill="#006970" />
+        </svg>
+    );
+}
 
 export default function LoginPage() {
     const [activeTab, setActiveTab] = useState<TabType>("staff");
@@ -37,7 +59,6 @@ export default function LoginPage() {
                     return;
                 }
 
-                // Successful login — middleware / server will redirect
                 window.location.href = "/dashboard";
             } catch {
                 setError("A network error occurred. Please try again.");
@@ -45,80 +66,86 @@ export default function LoginPage() {
         });
     }
 
+    const BADGES = [
+        { icon: "verified_user", label: "HIPAA & NDPR Compliant" },
+        { icon: "encrypted",     label: "End-to-End Encrypted" },
+        { icon: "monitor_heart", label: "Real-Time Clinical Insights" },
+    ];
+
     return (
         <div className="flex min-h-screen w-full overflow-hidden">
-            {/* ── Left panel — hero ─────────────────────────────────────────────── */}
-            <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center bg-(--color-primary-container) overflow-hidden">
-                {/* Background imagery */}
+
+            {/* ══════════════════════════════════════════════════════════════
+          LEFT PANEL — hero (desktop only)
+      ══════════════════════════════════════════════════════════════ */}
+            <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden"
+                 style={{ backgroundColor: "#0f4c81" }}>
+
+                {/* Background image */}
                 <div
-                    className="absolute inset-0 bg-cover bg-center opacity-30"
+                    className="absolute inset-0 bg-cover bg-center"
                     style={{
                         backgroundImage:
                             "url('https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=1200&q=80')",
+                        opacity: 0.18,
                     }}
                     aria-hidden="true"
                 />
-                {/* Gradient overlay */}
+                {/* Deep gradient overlay */}
                 <div
                     className="absolute inset-0"
                     style={{
                         background:
-                            "linear-gradient(135deg, rgba(15,76,129,0.85) 0%, rgba(0,53,95,0.70) 100%)",
+                            "linear-gradient(155deg, rgba(0,35,70,0.82) 0%, rgba(15,76,129,0.75) 100%)",
                     }}
                     aria-hidden="true"
                 />
 
-                {/* Hero content */}
-                <div className="relative z-10 flex flex-col items-center text-center px-(--spacing-xl) py-(--spacing-2xl)">
-                    {/* Logo container */}
-                    <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-2xl mb-(--spacing-lg) border-2 border-white/30">
-                        <img
-                            src="/brightlife-logo.svg"
-                            alt="BrightLife EHR logo"
-                            width={72}
-                            height={72}
-                            className="rounded-full"
-                        />
-                    </div>
+                {/* Content */}
+                <div className="relative z-10 flex flex-col items-center text-center w-full px-12 py-16">
 
-                    <h1
-                        className="text-white mb-(--spacing-sm)"
+                    {/* Logo circle */}
+                    <div
+                        className="flex items-center justify-center rounded-full shadow-2xl mb-6"
                         style={{
-                            fontSize: "36px",
-                            lineHeight: "44px",
-                            fontWeight: 700,
-                            letterSpacing: "-0.02em",
+                            width: 96,
+                            height: 96,
+                            background: "rgba(255,255,255,0.95)",
+                            border: "2px solid rgba(255,255,255,0.4)",
                         }}
                     >
+                        <BrightLifeLogo size={68} />
+                    </div>
+
+                    <h1 style={{ fontSize: 36, lineHeight: "44px", fontWeight: 700, letterSpacing: "-0.02em", color: "#fff", marginBottom: 6 }}>
                         BrightLife EHR
                     </h1>
-                    <p
-                        className="text-white/85 mb-(--spacing-2xl)"
-                        style={{ fontSize: "18px", lineHeight: "28px", fontWeight: 400 }}
-                    >
+                    <p style={{ fontSize: 18, lineHeight: "28px", color: "rgba(255,255,255,0.82)", marginBottom: 40 }}>
                         Secure Provider Portal
                     </p>
 
                     {/* Feature badges */}
-                    <div className="flex flex-col gap-(--spacing-sm) w-full max-w-xs">
-                        {[
-                            { icon: "verified_user", label: "HIPAA & NDPR Compliant" },
-                            { icon: "encrypted", label: "End-to-End Encrypted" },
-                            { icon: "monitor_heart", label: "Real-Time Clinical Insights" },
-                        ].map(({ icon, label }) => (
+                    <div className="flex flex-col w-full" style={{ gap: 10, maxWidth: 300 }}>
+                        {BADGES.map(({ icon, label }) => (
                             <div
                                 key={label}
-                                className="flex items-center gap-(--spacing-sm) px-(--spacing-md) py-(--spacing-sm) rounded-xl bg-white/10 border border-white/20 backdrop-blur-sm"
+                                className="flex items-center"
+                                style={{
+                                    gap: 12,
+                                    padding: "10px 16px",
+                                    borderRadius: 10,
+                                    background: "rgba(255,255,255,0.10)",
+                                    border: "1px solid rgba(255,255,255,0.18)",
+                                    backdropFilter: "blur(4px)",
+                                }}
                             >
                 <span
-                    className="material-symbols-outlined icon-fill text-(--color-secondary-container) text-[18px]"
+                    className="material-symbols-outlined icon-fill shrink-0"
+                    style={{ fontSize: 20, color: "#8df2fc" }}
                 >
                   {icon}
                 </span>
-                                <span
-                                    className="text-white"
-                                    style={{ fontSize: "14px", lineHeight: "20px", fontWeight: 500 }}
-                                >
+                                <span style={{ fontSize: 14, lineHeight: "20px", fontWeight: 500, color: "#fff", whiteSpace: "nowrap" }}>
                   {label}
                 </span>
                             </div>
@@ -127,113 +154,126 @@ export default function LoginPage() {
                 </div>
             </div>
 
-            {/* ── Right panel — form ────────────────────────────────────────────── */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center bg-(--color-surface-container-lowest) px-(--spacing-margin-mobile) md:px-(--spacing-margin-desktop) py-(--spacing-2xl)">
-                <div className="w-full max-w-105 flex flex-col gap-(--spacing-lg)">
+            {/* ══════════════════════════════════════════════════════════════
+          RIGHT PANEL — login form
+      ══════════════════════════════════════════════════════════════ */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center bg-white px-4 md:px-8 py-12 overflow-y-auto">
+                <div className="w-full flex flex-col" style={{ maxWidth: 420, gap: 24 }}>
 
-                    {/* ── Mobile-only logo ────────────────────────────────────────── */}
-                    <div className="lg:hidden flex flex-col items-center text-center gap-(--spacing-sm) mb-(--spacing-md)">
-                        <div className="w-14 h-14 bg-(--color-surface-container) rounded-full flex items-center justify-center border border-(--color-outline-variant) shadow-sm">
-                            <img
-                                src="/brightlife-logo.svg"
-                                alt="BrightLife EHR logo"
-                                width={44}
-                                height={44}
-                            />
+                    {/* ── Mobile logo (hidden on desktop) ── */}
+                    <div className="lg:hidden flex flex-col items-center text-center" style={{ gap: 10, marginBottom: 8 }}>
+                        <div
+                            className="flex items-center justify-center rounded-full"
+                            style={{
+                                width: 56,
+                                height: 56,
+                                background: "var(--color-surface-container)",
+                                border: "1px solid var(--color-outline-variant)",
+                            }}
+                        >
+                            <BrightLifeLogo size={40} />
                         </div>
                         <div>
-                            <h1
-                                className="text-(--color-on-surface)"
-                                style={{ fontSize: "28px", lineHeight: "36px", fontWeight: 600, letterSpacing: "-0.01em" }}
-                            >
+                            <h1 style={{ fontSize: 28, lineHeight: "36px", fontWeight: 600, letterSpacing: "-0.01em", color: "var(--color-on-surface)" }}>
                                 BrightLife EHR
                             </h1>
-                            <p
-                                className="text-(--color-on-surface-variant) mt-(--spacing-xs)"
-                                style={{ fontSize: "14px", lineHeight: "20px", fontWeight: 400 }}
-                            >
+                            <p style={{ fontSize: 14, lineHeight: "20px", color: "var(--color-on-surface-variant)", marginTop: 4 }}>
                                 Secure Provider Portal
                             </p>
                         </div>
                     </div>
 
-                    {/* ── Tab switcher ─────────────────────────────────────────────── */}
-                    <div className="bg-(--color-surface-container-low) p-(--spacing-xs) rounded-lg flex items-center border border-(--color-outline-variant)">
-                        {(["staff", "admin"] as TabType[]).map((tab) => (
-                            <button
-                                key={tab}
-                                type="button"
-                                onClick={() => {
-                                    setActiveTab(tab);
-                                    setError(null);
-                                }}
-                                className={[
-                                    "flex-1 py-(--spacing-sm) rounded transition-all duration-200",
-                                    "text-[14px] font-semibold leading-[16px] tracking-[0.01em]",
-                                    activeTab === tab
-                                        ? "bg-(--color-surface-container-lowest) text-(--color-primary-container) shadow-sm border border-(--color-outline-variant)"
-                                        : "text-(--color-on-surface-variant) hover:text-(--color-on-surface)",
-                                ].join(" ")}
-                            >
-                                {tab === "staff" ? "Staff Login" : "Admin Portal"}
-                            </button>
-                        ))}
+                    {/* ── Tab switcher ── */}
+                    <div
+                        className="flex items-center"
+                        style={{
+                            background: "var(--color-surface-container-low)",
+                            padding: 4,
+                            borderRadius: 8,
+                            border: "1px solid var(--color-outline-variant)",
+                        }}
+                    >
+                        {(["staff", "admin"] as TabType[]).map((tab) => {
+                            const isActive = activeTab === tab;
+                            return (
+                                <button
+                                    key={tab}
+                                    type="button"
+                                    onClick={() => { setActiveTab(tab); setError(null); }}
+                                    style={{
+                                        flex: 1,
+                                        padding: "8px 0",
+                                        borderRadius: 6,
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        lineHeight: "16px",
+                                        letterSpacing: "0.01em",
+                                        transition: "all 0.18s ease",
+                                        cursor: "pointer",
+                                        border: isActive ? "1px solid var(--color-outline-variant)" : "1px solid transparent",
+                                        background: isActive ? "#ffffff" : "transparent",
+                                        color: isActive ? "var(--color-primary-container)" : "var(--color-on-surface-variant)",
+                                        boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
+                                    }}
+                                >
+                                    {tab === "staff" ? "Staff Login" : "Admin Portal"}
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    {/* ── Heading ─────────────────────────────────────────────────── */}
+                    {/* ── Heading ── */}
                     <div>
-                        <h2
-                            className="text-(--color-on-surface)"
-                            style={{ fontSize: "20px", lineHeight: "28px", fontWeight: 600 }}
-                        >
+                        <h2 style={{ fontSize: 20, lineHeight: "28px", fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 4 }}>
                             {activeTab === "staff" ? "Staff Sign In" : "Admin Sign In"}
                         </h2>
-                        <p
-                            className="text-(--color-on-surface-variant) mt-(--spacing-xs)"
-                            style={{ fontSize: "14px", lineHeight: "20px" }}
-                        >
+                        <p style={{ fontSize: 14, lineHeight: "20px", color: "var(--color-on-surface-variant)" }}>
                             {activeTab === "staff"
                                 ? "Access clinical records and patient management tools."
                                 : "Access system settings and administrative controls."}
                         </p>
                     </div>
 
-                    {/* ── Error banner ─────────────────────────────────────────────── */}
+                    {/* ── Error banner ── */}
                     {error && (
                         <div
                             role="alert"
-                            className="bg-(--color-error-container) border border-on-error-container/20 rounded-lg px-(--spacing-md) py-(--spacing-sm) flex items-start gap-(--spacing-sm)"
+                            className="flex items-start"
+                            style={{
+                                gap: 10,
+                                padding: "10px 14px",
+                                borderRadius: 8,
+                                background: "var(--color-error-container)",
+                                border: "1px solid rgba(147,0,10,0.15)",
+                            }}
                         >
-              <span className="material-symbols-outlined text-(--color-on-error-container) text-[18px] mt-0.5 shrink-0">
+              <span
+                  className="material-symbols-outlined shrink-0"
+                  style={{ fontSize: 18, color: "var(--color-on-error-container)", marginTop: 1 }}
+              >
                 error
               </span>
-                            <p
-                                className="text-(--color-on-error-container)"
-                                style={{ fontSize: "14px", lineHeight: "20px" }}
-                            >
+                            <p style={{ fontSize: 14, lineHeight: "20px", color: "var(--color-on-error-container)" }}>
                                 {error}
                             </p>
                         </div>
                     )}
 
-                    {/* ── Form ─────────────────────────────────────────────────────── */}
-                    <form
-                        onSubmit={handleSubmit}
-                        className="flex flex-col gap-(--spacing-md)"
-                        noValidate
-                    >
-                        {/* Email / User ID field */}
-                        <div className="flex flex-col gap-(--spacing-xs)">
+                    {/* ── Form ── */}
+                    <form onSubmit={handleSubmit} className="flex flex-col" style={{ gap: 16 }} noValidate>
+
+                        {/* Email / User ID */}
+                        <div className="flex flex-col" style={{ gap: 6 }}>
                             <label
                                 htmlFor="email"
-                                className="text-(--color-on-surface) font-semibold"
-                                style={{ fontSize: "12px", lineHeight: "14px" }}
+                                style={{ fontSize: 12, lineHeight: "14px", fontWeight: 600, color: "var(--color-on-surface)" }}
                             >
                                 Email or User ID
                             </label>
                             <div className="relative flex items-center">
                 <span
-                    className="material-symbols-outlined absolute left-(--spacing-sm) text-(--color-outline) text-[20px] pointer-events-none"
+                    className="material-symbols-outlined absolute pointer-events-none"
+                    style={{ left: 10, fontSize: 20, color: "var(--color-outline)" }}
                     aria-hidden="true"
                 >
                   person
@@ -246,47 +286,54 @@ export default function LoginPage() {
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder={
-                                        activeTab === "staff"
-                                            ? "provider@brightlife.ng or STF-001"
-                                            : "admin@brightlife.ng"
-                                    }
-                                    className={[
-                                        "w-full bg-(--color-surface-container-lowest) border rounded-xl",
-                                        "py-(--spacing-sm) pl-9 pr-(--spacing-sm)",
-                                        "text-(--color-on-surface) placeholder:text-(--color-outline-variant)",
-                                        "focus:outline-none focus:border-(--color-primary-container) focus:ring-1 focus:ring-(--color-primary-container)",
-                                        "transition-all duration-150",
-                                        error
-                                            ? "border-(--color-error)"
-                                            : "border-(--color-outline-variant)",
-                                    ].join(" ")}
-                                    style={{ fontSize: "16px", lineHeight: "24px" }}
+                                    placeholder={activeTab === "staff" ? "provider@brightlife.ng or STF-001" : "admin@brightlife.ng"}
+                                    style={{
+                                        width: "100%",
+                                        fontSize: 16,
+                                        lineHeight: "24px",
+                                        padding: "9px 12px 9px 36px",
+                                        borderRadius: 10,
+                                        border: `1px solid ${error ? "var(--color-error)" : "var(--color-outline-variant)"}`,
+                                        background: "#ffffff",
+                                        color: "var(--color-on-surface)",
+                                        outline: "none",
+                                        transition: "border-color 0.15s, box-shadow 0.15s",
+                                        boxSizing: "border-box",
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = "var(--color-primary-container)";
+                                        e.target.style.boxShadow = "0 0 0 2px rgba(15,76,129,0.15)";
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = error ? "var(--color-error)" : "var(--color-outline-variant)";
+                                        e.target.style.boxShadow = "none";
+                                    }}
                                 />
                             </div>
                         </div>
 
-                        {/* Password field */}
-                        <div className="flex flex-col gap-(--spacing-xs)">
+                        {/* Password */}
+                        <div className="flex flex-col" style={{ gap: 6 }}>
                             <div className="flex justify-between items-center">
                                 <label
                                     htmlFor="password"
-                                    className="text-(--color-on-surface) font-semibold"
-                                    style={{ fontSize: "12px", lineHeight: "14px" }}
+                                    style={{ fontSize: 12, lineHeight: "14px", fontWeight: 600, color: "var(--color-on-surface)" }}
                                 >
                                     Password
                                 </label>
                                 <Link
                                     href="/forgot-password"
-                                    className="text-(--color-primary-container) hover:underline"
-                                    style={{ fontSize: "12px", lineHeight: "14px" }}
+                                    style={{ fontSize: 12, lineHeight: "14px", color: "var(--color-primary-container)", textDecoration: "none" }}
+                                    onMouseOver={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                                    onMouseOut={(e) => (e.currentTarget.style.textDecoration = "none")}
                                 >
                                     Forgot Password?
                                 </Link>
                             </div>
                             <div className="relative flex items-center">
                 <span
-                    className="material-symbols-outlined absolute left-(--spacing-sm) text-(--color-outline) text-[20px] pointer-events-none"
+                    className="material-symbols-outlined absolute pointer-events-none"
+                    style={{ left: 10, fontSize: 20, color: "var(--color-outline)" }}
                     aria-hidden="true"
                 >
                   lock
@@ -300,26 +347,45 @@ export default function LoginPage() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••"
-                                    className={[
-                                        "w-full bg-(--color-surface-container-lowest) border rounded-xl",
-                                        "py-(--spacing-sm) pl-9 pr-10",
-                                        "text-(--color-on-surface) placeholder:text-(--color-outline-variant)",
-                                        "focus:outline-none focus:border-(--color-primary-container) focus:ring-1 focus:ring-(--color-primary-container)",
-                                        "transition-all duration-150",
-                                        error
-                                            ? "border-(--color-error)"
-                                            : "border-(--color-outline-variant)",
-                                    ].join(" ")}
-                                    style={{ fontSize: "16px", lineHeight: "24px" }}
+                                    style={{
+                                        width: "100%",
+                                        fontSize: 16,
+                                        lineHeight: "24px",
+                                        padding: "9px 40px 9px 36px",
+                                        borderRadius: 10,
+                                        border: `1px solid ${error ? "var(--color-error)" : "var(--color-outline-variant)"}`,
+                                        background: "#ffffff",
+                                        color: "var(--color-on-surface)",
+                                        outline: "none",
+                                        transition: "border-color 0.15s, box-shadow 0.15s",
+                                        boxSizing: "border-box",
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = "var(--color-primary-container)";
+                                        e.target.style.boxShadow = "0 0 0 2px rgba(15,76,129,0.15)";
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = error ? "var(--color-error)" : "var(--color-outline-variant)";
+                                        e.target.style.boxShadow = "none";
+                                    }}
                                 />
-                                {/* Show / hide password toggle */}
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword((v) => !v)}
-                                    className="absolute right-(--spacing-sm) text-(--color-outline) hover:text-(--color-on-surface-variant) transition-colors"
                                     aria-label={showPassword ? "Hide password" : "Show password"}
+                                    style={{
+                                        position: "absolute",
+                                        right: 10,
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        padding: 0,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        color: "var(--color-outline)",
+                                    }}
                                 >
-                  <span className="material-symbols-outlined text-[20px]">
+                  <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
                     {showPassword ? "visibility_off" : "visibility"}
                   </span>
                                 </button>
@@ -327,64 +393,63 @@ export default function LoginPage() {
                         </div>
 
                         {/* 2FA notice */}
-                        <div className="bg-(--color-surface-container) px-(--spacing-sm) py-(--spacing-sm) rounded-lg border border-(--color-outline-variant) flex items-start gap-(--spacing-sm)">
+                        <div
+                            className="flex items-start"
+                            style={{
+                                gap: 10,
+                                padding: "10px 12px",
+                                borderRadius: 8,
+                                background: "var(--color-surface-container)",
+                                border: "1px solid var(--color-outline-variant)",
+                            }}
+                        >
               <span
-                  className="material-symbols-outlined text-(--color-primary-container) text-[20px] shrink-0 mt-0.5"
+                  className="material-symbols-outlined shrink-0"
+                  style={{ fontSize: 20, color: "var(--color-primary-container)", marginTop: 1 }}
                   aria-hidden="true"
               >
                 phonelink_lock
               </span>
-                            <p
-                                className="text-(--color-on-surface-variant) leading-tight"
-                                style={{ fontSize: "14px", lineHeight: "20px" }}
-                            >
-                                Two-factor authentication (2FA) will be required on the next
-                                step to protect patient health information (PHI).
+                            <p style={{ fontSize: 14, lineHeight: "20px", color: "var(--color-on-surface-variant)", margin: 0 }}>
+                                Two-factor authentication (2FA) will be required on the next step to protect patient health information (PHI).
                             </p>
                         </div>
 
-                        {/* Submit button */}
+                        {/* Submit */}
                         <button
                             type="submit"
                             disabled={isPending}
-                            className={[
-                                "w-full flex items-center justify-center gap-(--spacing-sm)",
-                                "bg-(--color-primary-container) text-white rounded-xl py-(--spacing-md) mt-(--spacing-xs)",
-                                "font-semibold tracking-[0.01em]",
-                                "hover:bg-(--color-primary) transition-colors duration-200",
-                                "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-(--color-primary-container)",
-                                "disabled:opacity-60 disabled:cursor-not-allowed",
-                            ].join(" ")}
-                            style={{ fontSize: "14px", lineHeight: "16px" }}
+                            className="flex items-center justify-center"
+                            style={{
+                                gap: 8,
+                                width: "100%",
+                                padding: "14px 24px",
+                                marginTop: 4,
+                                borderRadius: 10,
+                                border: "none",
+                                background: isPending ? "var(--color-primary)" : "var(--color-primary-container)",
+                                color: "#ffffff",
+                                fontSize: 14,
+                                fontWeight: 600,
+                                letterSpacing: "0.01em",
+                                cursor: isPending ? "not-allowed" : "pointer",
+                                opacity: isPending ? 0.7 : 1,
+                                transition: "background 0.2s, opacity 0.2s",
+                            }}
+                            onMouseOver={(e) => { if (!isPending) e.currentTarget.style.background = "var(--color-primary)"; }}
+                            onMouseOut={(e) => { if (!isPending) e.currentTarget.style.background = "var(--color-primary-container)"; }}
                         >
                             {isPending ? (
                                 <>
-                                    <svg
-                                        className="animate-spin h-4 w-4 text-white"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        aria-hidden="true"
-                                    >
-                                        <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="4"
-                                        />
-                                        <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8v8z"
-                                        />
+                                    <svg className="animate-spin" width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity={0.25} />
+                                        <path fill="currentColor" opacity={0.75} d="M4 12a8 8 0 018-8v8z" />
                                     </svg>
                                     Signing in…
                                 </>
                             ) : (
                                 <>
-                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }} aria-hidden="true">
                     lock_open
                   </span>
                                     Secure Sign In
@@ -393,39 +458,37 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    {/* ── Footer strip ─────────────────────────────────────────────── */}
-                    <div className="flex justify-between items-center pt-(--spacing-lg) border-t border-(--color-outline-variant)">
-                        <div className="flex items-center gap-(--spacing-xs) text-(--color-secondary)">
+                    {/* ── Footer strip ── */}
+                    <div
+                        className="flex justify-between items-center"
+                        style={{ paddingTop: 20, borderTop: "1px solid var(--color-outline-variant)" }}
+                    >
+                        <div className="flex items-center" style={{ gap: 6, color: "var(--color-secondary)" }}>
               <span
-                  className="material-symbols-outlined icon-fill text-[16px]"
+                  className="material-symbols-outlined icon-fill shrink-0"
+                  style={{ fontSize: 16 }}
                   aria-hidden="true"
               >
                 verified_user
               </span>
-                            <span
-                                className="font-semibold"
-                                style={{ fontSize: "12px", lineHeight: "14px" }}
-                            >
+                            <span style={{ fontSize: 12, lineHeight: "14px", fontWeight: 600 }}>
                 HIPAA &amp; NDPR Compliant
               </span>
                         </div>
                         <a
                             href="mailto:support@brightlife.ng"
-                            className="flex items-center gap-(--spacing-xs) text-(--color-on-surface-variant) hover:text-(--color-primary-container) transition-colors"
-                            style={{ fontSize: "12px", lineHeight: "14px" }}
+                            className="flex items-center"
+                            style={{ gap: 4, fontSize: 12, lineHeight: "14px", color: "var(--color-on-surface-variant)", textDecoration: "none", transition: "color 0.15s" }}
+                            onMouseOver={(e) => (e.currentTarget.style.color = "var(--color-primary-container)")}
+                            onMouseOut={(e) => (e.currentTarget.style.color = "var(--color-on-surface-variant)")}
                         >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                help
-              </span>
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }} aria-hidden="true">help</span>
                             Help
                         </a>
                     </div>
 
-                    {/* ── Version / env tag ─────────────────────────────────────────── */}
-                    <p
-                        className="text-center text-(--color-outline) select-none"
-                        style={{ fontSize: "12px", lineHeight: "14px" }}
-                    >
+                    {/* ── Version tag ── */}
+                    <p style={{ textAlign: "center", fontSize: 12, lineHeight: "14px", color: "var(--color-outline)", userSelect: "none" }}>
                         BrightLife EHR &mdash; v1.0.0 &bull; &copy; {new Date().getFullYear()} BrightLife Health Systems
                     </p>
                 </div>
