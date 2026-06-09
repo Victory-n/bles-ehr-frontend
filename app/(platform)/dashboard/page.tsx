@@ -55,8 +55,8 @@ const SCHEDULE = [
 
 const QUICK_ACTIONS = [
   { icon: "edit_square", label: "Start Clinic Note" },
-  { icon: "download",    label: "Export Daily Roster" },
-  { icon: "lock_reset",  label: "Reset Access Code" },
+  { icon: "download", label: "Export Daily Roster" },
+  { icon: "lock_reset", label: "Reset Access Code" },
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -111,7 +111,7 @@ export default function DashboardPage() {
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
         <div>
           <h2 style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-on-background)", margin: 0, lineHeight: 1.2 }}>
-            Good Morning, Dr. Vance.
+            Good Morning, Dr. Mia.
           </h2>
           <p style={{ fontSize: 15, color: "var(--color-on-surface-variant)", marginTop: 4 }}>
             Here is your clinical overview for {dayOfWeek}, {month} {day}{suffix}.
