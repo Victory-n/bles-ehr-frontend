@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="80ab1714-2438-4153-a965-573515b06383" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="80ab1714-2438-4153-a965-573515b06383" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -72,9 +70,11 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\VICTORY\Documents\GitHub\bles-ehr-frontend\utils" />
+      <recent name="C:\Users\VICTORY\Documents\GitHub\bles-ehr-frontend\lib\auth" />
+      <recent name="C:\Users\VICTORY\Documents\GitHub\bles-ehr-frontend\lib\services" />
       <recent name="C:\Users\VICTORY\Documents\GitHub\bles-ehr-frontend\lib\controllers" />
       <recent name="C:\Users\VICTORY\Documents\GitHub\bles-ehr-frontend\app\api" />
-      <recent name="C:\Users\VICTORY\Documents\GitHub\bles-ehr-frontend\lib" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\VICTORY\Documents\GitHub\bles-ehr-frontend\app\api\auth\login" />
@@ -137,7 +137,7 @@
       <workItem from="1780853783498" duration="958000" />
       <workItem from="1780865240966" duration="10844000" />
       <workItem from="1780920728705" duration="2026000" />
-      <workItem from="1781007713797" duration="677000" />
+      <workItem from="1781007713797" duration="756000" />
     </task>
     <servers />
   </component>
