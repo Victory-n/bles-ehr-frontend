@@ -5,8 +5,8 @@ export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
 
-    // 0 for staff
-    const result = await loginUser(email, password, 0);
+    // 1 for admin
+    const result = await loginUser(email, password, 1);
 
     if (!result.success) {
       return NextResponse.json({ message: result.message }, { status: result.status });
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ user: result.user, message: result.message }, { status: 200 });
   } catch (error) {
-    console.error("Staff login error:", error);
+    console.error("Admin login error:", error);
     return NextResponse.json({ message: "An internal server error occurred" }, { status: 500 });
   }
 }
