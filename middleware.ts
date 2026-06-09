@@ -9,7 +9,6 @@ export function middleware(request: NextRequest) {
   const isPublicPath =
     pathname === "/login" ||
     pathname.startsWith("/api/auth/") ||
-    pathname === "/api/db-status" ||
     pathname === "/forgot-password";
 
   // If the user has no token and is trying to access a protected path, redirect to /login
