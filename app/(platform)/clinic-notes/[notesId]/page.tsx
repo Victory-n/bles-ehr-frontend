@@ -234,14 +234,23 @@ function ClinicNotesListTab({ notesId, onViewNote }: { notesId: string; onViewNo
 
   React.useEffect(() => {
     const defaultDocs = [
-      { name: "Progress Note — Session 4", date: "Mar 02, 2024", type: "PDF" },
-      { name: "Progress Note — Session 5", date: "Mar 10, 2024", type: "PDF" },
-      { name: "Intake Assessment", date: "Jan 15, 2024", type: "PDF" },
+      { name: "Progress Note — Session 4", date: "Mar 02, 2024", type: "Progress Note" },
+      { name: "Progress Note — Session 5", date: "Mar 10, 2024", type: "Progress Note" },
+      { name: "Intake Assessment", date: "Jan 15, 2024", type: "Intake Session" },
     ];
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(`notes_${notesId}`);
       if (saved) {
-        setDocs(JSON.parse(saved));
+        const parsed = JSON.parse(saved).map((doc: any) => {
+          if (doc.type === "PDF") {
+            if (doc.name.toLowerCase().includes("intake")) {
+              return { ...doc, type: "Intake Session" };
+            }
+            return { ...doc, type: "Progress Note" };
+          }
+          return doc;
+        });
+        setDocs(parsed);
         return;
       }
     }
@@ -284,6 +293,24 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+function getTypeBadgeStyle(type: string) {
+  const t = type?.toLowerCase() || "";
+  if (t.includes("intake")) {
+    return { background: "#e8f0fe", color: "#1a73e8" }; // blue
+  }
+  if (t.includes("progress")) {
+    return { background: "#e6f4ea", color: "#137333" }; // green
+  }
+  if (t.includes("group")) {
+    return { background: "#f3e8fd", color: "#9333ea" }; // purple
+  }
+  if (t.includes("assessment") || t.includes("summary")) {
+    return { background: "#fff3e0", color: "#e65100" }; // amber
+  }
+  // Fallback for PDF or others
+  return { background: "#f1f3f4", color: "#5f6368" }; // grey
+}
+
 function DocumentTable({ title, docs, onViewClick }: { title: string; docs: any[]; onViewClick?: (doc: any) => void }) {
   return (
     <Card title={title}>
@@ -304,7 +331,15 @@ function DocumentTable({ title, docs, onViewClick }: { title: string; docs: any[
                 </div>
               </td>
               <td style={{ padding: "12px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>{d.date}</td>
-              <td style={{ padding: "12px", fontSize: 12, fontWeight: 600 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: "#fce8e8", color: "#b3261e" }}>{d.type}</span></td>
+              <td style={{ padding: "12px", fontSize: 12, fontWeight: 600 }}>
+                <span style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  ...getTypeBadgeStyle(d.type)
+                }}>
+                  {d.type}
+                </span>
+              </td>
               <td style={{ padding: "12px", textAlign: "right" }}>
                 <span
                   className="material-symbols-outlined"

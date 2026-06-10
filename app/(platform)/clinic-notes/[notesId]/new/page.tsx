@@ -165,15 +165,15 @@ export default function NewClinicNotePage() {
     const newNoteObject = {
       name: title || "Untitled Clinical Note",
       date: formattedDate,
-      type: "PDF",
+      type: noteType,
       isDraft: !isLocked,
     };
 
     if (typeof window !== "undefined") {
       const defaultDocs = [
-        { name: "Progress Note — Session 4", date: "Mar 02, 2024", type: "PDF" },
-        { name: "Progress Note — Session 5", date: "Mar 10, 2024", type: "PDF" },
-        { name: "Intake Assessment", date: "Jan 15, 2024", type: "PDF" },
+        { name: "Progress Note — Session 4", date: "Mar 02, 2024", type: "Progress Note" },
+        { name: "Progress Note — Session 5", date: "Mar 10, 2024", type: "Progress Note" },
+        { name: "Intake Assessment", date: "Jan 15, 2024", type: "Intake Session" },
       ];
       const saved = localStorage.getItem(`notes_${notesId}`);
       const currentNotes = saved ? JSON.parse(saved) : defaultDocs;
