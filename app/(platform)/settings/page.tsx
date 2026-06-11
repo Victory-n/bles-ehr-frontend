@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 /* ══════════════════════════════════════════════════════════════════════════
    Mock Settings Data
@@ -224,8 +225,41 @@ export default function SettingsPage() {
    ══════════════════════════════════════════════════════════════════════════ */
 
 function MyProfileTab({ onSave }: { onSave: (msg: string) => void }) {
-    const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
-    const [avatarChar, setAvatarChar] = useState<string>("MB");
+    const { user, refreshUser } = useAuth();
+    const [profile, setProfile] = useState<UserProfile>({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        title: "",
+        department: "",
+        dob: "",
+        sex: "Female",
+        bio: ""
+    });
+    const [avatarChar, setAvatarChar] = useState<string>("??");
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            const f = user.firstname || "";
+            const l = user.lastname || "";
+            setProfile({
+                firstName: f,
+                lastName: l,
+                email: user.email || "",
+                phone: user.jsonColumn?.phone || "",
+                title: user.jsonColumn?.title || "",
+                department: user.jsonColumn?.department || "",
+                dob: user.dateofbirth ? user.dateofbirth.split("T")[0] : "",
+                sex: user.sex || "Female",
+                bio: user.jsonColumn?.bio || ""
+            });
+            const fChar = f.charAt(0).toUpperCase();
+            const lChar = l.charAt(0).toUpperCase();
+            setAvatarChar(fChar && lChar ? `${fChar}${lChar}` : "??");
+        }
+    }, [user]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -240,9 +274,38 @@ function MyProfileTab({ onSave }: { onSave: (msg: string) => void }) {
         });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave("Profile details updated successfully.");
+        setSaving(true);
+        try {
+            const res = await fetch("/api/auth/me", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    firstname: profile.firstName,
+                    lastname: profile.lastName,
+                    email: profile.email,
+                    sex: profile.sex,
+                    dateofbirth: profile.dob,
+                    phone: profile.phone,
+                    title: profile.title,
+                    department: profile.department,
+                    bio: profile.bio
+                })
+            });
+            if (res.ok) {
+                await refreshUser();
+                onSave("Profile details updated successfully.");
+            } else {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || "Failed to update profile.");
+            }
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            alert("A network error occurred.");
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -366,7 +429,9 @@ function MyProfileTab({ onSave }: { onSave: (msg: string) => void }) {
                 </Card>
 
                 <div>
-                    <button type="submit" style={saveBtnStyle}>Save Changes</button>
+                    <button type="submit" disabled={saving} style={{ ...saveBtnStyle, opacity: saving ? 0.7 : 1, cursor: saving ? "not-allowed" : "pointer" }}>
+                        {saving ? "Saving..." : "Save Changes"}
+                    </button>
                 </div>
             </div>
 

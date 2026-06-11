@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from "react";
 import Sidebar from "@/components/shell/Sidebar";
 import Topbar from "@/components/shell/Topbar";
+import { AuthProvider } from "@/lib/auth/AuthContext";
 
 export default function PlatformLayout({
   children,
@@ -15,31 +16,34 @@ export default function PlatformLayout({
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "var(--color-background)",
-      }}
-    >
-      {/* Sidebar */}
-      <Sidebar isOpen={mobileOpen} onClose={closeMobile} />
+    <AuthProvider>
+      <div
+        style={{
+          display: "flex",
+          minHeight: "100vh",
+          background: "var(--color-background)",
+        }}
+      >
+        {/* Sidebar */}
+        <Sidebar isOpen={mobileOpen} onClose={closeMobile} />
 
-      {/* Main column */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <Topbar onMenuClick={openMobile} />
+        {/* Main column */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <Topbar onMenuClick={openMobile} />
 
-        {/* Page content */}
-        <main
-          style={{
-            flex: 1,
-            padding: 24,
-            overflowY: "auto",
-          }}
-        >
-          {children}
-        </main>
+          {/* Page content */}
+          <main
+            style={{
+              flex: 1,
+              padding: 24,
+              overflowY: "auto",
+            }}
+          >
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthProvider>
   );
 }
+

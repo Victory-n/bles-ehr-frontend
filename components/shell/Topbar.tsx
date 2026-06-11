@@ -1,39 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-
-/* ── Read user info from cookie ────────────────────────────────────── */
-interface UserInfo {
-  name: string;
-  role: string;
-  initials: string;
-}
-
-function getUserInfo(): UserInfo {
-  if (typeof document === "undefined") {
-    return { name: "Dr. E. Vance", role: "Lead Clinician", initials: "EV" };
-  }
-  try {
-    const raw = document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("userInfo="))
-      ?.split("=")[1];
-    if (raw) {
-      const parsed = JSON.parse(decodeURIComponent(raw));
-      const nameParts = (parsed.name ?? "Dr. E. Vance").trim().split(" ");
-      const initials =
-        nameParts.length >= 2
-          ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
-          : nameParts[0]?.slice(0, 2) ?? "EV";
-      return {
-        name: parsed.name ?? "Dr. E. Vance",
-        role: parsed.role ?? "Lead Clinician",
-        initials: initials.toUpperCase(),
-      };
-    }
-  } catch {}
-  return { name: "Dr. E. Vance", role: "Lead Clinician", initials: "EV" };
-}
+import { useAuth } from "@/lib/auth/AuthContext";
 
 /* ══════════════════════════════════════════════════════════════════════════
    Topbar
@@ -46,16 +14,19 @@ export default function Topbar({
 }: {
   onMenuClick: () => void;
 }) {
-  const [user, setUser] = useState<UserInfo>({
-    name: "Dr. E. Vance",
-    role: "Lead Clinician",
-    initials: "EV",
-  });
+  const { user, loading } = useAuth();
   const [searchValue, setSearchValue] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setUser(getUserInfo()); }, []);
+  const fullName = user ? `${user.firstname} ${user.lastname}` : "Dr. E. Vance";
+  const userRoleName = user
+    ? (user.role === 1 ? "System Admin" : (user.jsonColumn?.title ?? "Lead Clinician"))
+    : "Lead Clinician";
+  
+  const initials = user
+    ? (user.firstname[0] + user.lastname[0]).toUpperCase()
+    : "EV";
 
   /* Close dropdown on outside click */
   useEffect(() => {
@@ -358,7 +329,7 @@ export default function Topbar({
                 letterSpacing: "0.02em",
               }}
             >
-              {user.initials}
+              {loading ? "..." : initials}
             </span>
           </div>
           {/* Name + role */}
@@ -373,7 +344,7 @@ export default function Topbar({
                 margin: 0,
               }}
             >
-              {user.name}
+              {loading ? "Loading..." : fullName}
             </p>
             <p
               style={{
@@ -384,7 +355,7 @@ export default function Topbar({
                 margin: 0,
               }}
             >
-              {user.role}
+              {loading ? "Please wait" : userRoleName}
             </p>
           </div>
         </div>
