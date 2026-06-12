@@ -4,6 +4,25 @@ import React from "react";
 import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 import StaffCreatedModal from "./StaffCreatedModal";
 
+// Define resources and permissions for the form
+const RESOURCES = [
+    { key: "p", label: "Patient" },
+    { key: "pr", label: "Programs" },
+    { key: "cn", label: "Clinic Notes" },
+    { key: "s", label: "Staff" },
+    { key: "b", label: "Billing" },
+    { key: "c", label: "Compliance" },
+    { key: "al", label: "Audit Log" }
+];
+
+const PERMISSIONS = [
+    { key: 1, label: "Create" },
+    { key: 2, label: "Read" },
+    { key: 3, label: "Update" },
+    { key: 4, label: "Write" },
+    { key: 5, label: "Delete" }
+];
+
 interface StaffFormData {
     firstName?: string;
     lastName?: string;
@@ -21,13 +40,19 @@ export default function StaffFormModal({ onClose }: Props) {
     const [showVerifyPinModal, setShowVerifyPinModal] = React.useState(false);
     const [showSuccessModal, setShowSuccessModal] = React.useState(false);
     const [formVisible, setFormVisible] = React.useState(true);
+    const [activeTab, setActiveTab] = React.useState<'profile' | 'permissions'>('profile');
+    const [permissions, setPermissions] = React.useState<Record<string, number[]>>({});
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!pinSet) {
-            setShowSetPinModal(true);
+        if (activeTab === 'profile') {
+            setActiveTab('permissions');
         } else {
-            setShowVerifyPinModal(true);
+            if (!pinSet) {
+                setShowSetPinModal(true);
+            } else {
+                setShowVerifyPinModal(true);
+            }
         }
     };
 
@@ -38,6 +63,30 @@ export default function StaffFormModal({ onClose }: Props) {
 
     const handleDone = () => {
         onClose();
+    };
+
+    const togglePermission = (resourceKey: string, permissionKey: number) => {
+        setPermissions(prev => {
+            const current = prev[resourceKey] || [];
+            const updated = current.includes(permissionKey)
+                ? current.filter(p => p !== permissionKey)
+                : [...current, permissionKey];
+            return { ...prev, [resourceKey]: updated };
+        });
+    };
+
+    const selectAllForResource = (resourceKey: string) => {
+        setPermissions(prev => ({
+            ...prev,
+            [resourceKey]: PERMISSIONS.map(p => p.key)
+        }));
+    };
+
+    const clearAllForResource = (resourceKey: string) => {
+        setPermissions(prev => ({
+            ...prev,
+            [resourceKey]: []
+        }));
     };
 
     return (
@@ -61,7 +110,7 @@ export default function StaffFormModal({ onClose }: Props) {
                         onClick={(e) => e.stopPropagation()}
                         style={{
                             width: "100%",
-                            maxWidth: 540,
+                            maxWidth: activeTab === 'profile' ? 540 : 900,
                             maxHeight: "90vh",
                             overflowY: "auto",
                             background: "#ffffff",
@@ -102,120 +151,309 @@ export default function StaffFormModal({ onClose }: Props) {
                             </button>
                         </div>
 
+                        {/* ── Tabs ─────────────────────────────────────────────────── */}
+                        <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--color-outline-variant)" }}>
+                            {[
+                                { id: 'profile', label: 'Profile' },
+                                { id: 'permissions', label: 'Permissions' }
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as any)}
+                                    style={{
+                                        padding: "10px 24px",
+                                        fontSize: 14,
+                                        fontWeight: activeTab === tab.id ? 700 : 500,
+                                        color: activeTab === tab.id ? "var(--color-primary-container)" : "var(--color-on-surface-variant)",
+                                        background: "none",
+                                        border: "none",
+                                        borderBottom: activeTab === tab.id ? "2px solid var(--color-primary-container)" : "2px solid transparent",
+                                        marginBottom: -2,
+                                        cursor: "pointer",
+                                        transition: "color 0.12s",
+                                    }}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+
                         {/* ── Body ────────────────────────────────────────────────────── */}
                         <form
                             onSubmit={handleSubmit}
                             style={{ padding: "8px 24px 24px", display: "flex", flexDirection: "column", gap: 18 }}
                         >
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>First Name *</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Enter first name"
-                                        required
-                                        style={{
-                                            width: "100%",
-                                            padding: "10px 14px",
-                                            borderRadius: 8,
-                                            border: "1px solid var(--color-outline-variant)",
-                                            background: "var(--color-surface-container-lowest)",
-                                            fontSize: 14,
-                                            color: "var(--color-on-surface)",
-                                            outline: "none",
-                                            transition: "border-color 0.15s",
-                                            boxSizing: "border-box",
-                                        }}
-                                        onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
-                                        onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
-                                    />
-                                </div>
+                            {activeTab === 'profile' && (
+                                <>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>First Name *</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Enter first name"
+                                                required
+                                                style={{
+                                                    width: "100%",
+                                                    padding: "10px 14px",
+                                                    borderRadius: 8,
+                                                    border: "1px solid var(--color-outline-variant)",
+                                                    background: "var(--color-surface-container-lowest)",
+                                                    fontSize: 14,
+                                                    color: "var(--color-on-surface)",
+                                                    outline: "none",
+                                                    transition: "border-color 0.15s",
+                                                    boxSizing: "border-box",
+                                                }}
+                                                onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
+                                                onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
+                                            />
+                                        </div>
 
-                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>Last Name *</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Enter last name"
-                                        required
-                                        style={{
-                                            width: "100%",
-                                            padding: "10px 14px",
-                                            borderRadius: 8,
-                                            border: "1px solid var(--color-outline-variant)",
-                                            background: "var(--color-surface-container-lowest)",
-                                            fontSize: 14,
-                                            color: "var(--color-on-surface)",
-                                            outline: "none",
-                                            transition: "border-color 0.15s",
-                                            boxSizing: "border-box",
-                                        }}
-                                        onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
-                                        onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
-                                    />
-                                </div>
-                            </div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>Last Name *</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Enter last name"
+                                                required
+                                                style={{
+                                                    width: "100%",
+                                                    padding: "10px 14px",
+                                                    borderRadius: 8,
+                                                    border: "1px solid var(--color-outline-variant)",
+                                                    background: "var(--color-surface-container-lowest)",
+                                                    fontSize: 14,
+                                                    color: "var(--color-on-surface)",
+                                                    outline: "none",
+                                                    transition: "border-color 0.15s",
+                                                    boxSizing: "border-box",
+                                                }}
+                                                onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
+                                                onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
+                                            />
+                                        </div>
+                                    </div>
 
-                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>Email *</label>
-                                <input
-                                    type="email"
-                                    placeholder="staff@clinic.com"
-                                    required
-                                    style={{
-                                        width: "100%",
-                                        padding: "10px 14px",
-                                        borderRadius: 8,
-                                        border: "1px solid var(--color-outline-variant)",
-                                        background: "var(--color-surface-container-lowest)",
-                                        fontSize: 14,
-                                        color: "var(--color-on-surface)",
-                                        outline: "none",
-                                        transition: "border-color 0.15s",
-                                        boxSizing: "border-box",
-                                    }}
-                                    onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
-                                    onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
-                                />
-                            </div>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>Email *</label>
+                                        <input
+                                            type="email"
+                                            placeholder="staff@clinic.com"
+                                            required
+                                            style={{
+                                                width: "100%",
+                                                padding: "10px 14px",
+                                                borderRadius: 8,
+                                                border: "1px solid var(--color-outline-variant)",
+                                                background: "var(--color-surface-container-lowest)",
+                                                fontSize: 14,
+                                                color: "var(--color-on-surface)",
+                                                outline: "none",
+                                                transition: "border-color 0.15s",
+                                                boxSizing: "border-box",
+                                            }}
+                                            onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
+                                            onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
+                                        />
+                                    </div>
 
-                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>Position *</label>
-                                <div style={{ position: "relative" }}>
-                                    <select
-                                        required
-                                        defaultValue=""
-                                        style={{
-                                            width: "100%",
-                                            padding: "10px 32px 10px 14px",
-                                            borderRadius: 8,
-                                            border: "1px solid var(--color-outline-variant)",
-                                            background: "var(--color-surface-container-lowest)",
-                                            fontSize: 14,
-                                            color: "var(--color-on-surface)",
-                                            outline: "none",
-                                            transition: "border-color 0.15s",
-                                            boxSizing: "border-box",
-                                            appearance: "none",
-                                            cursor: "pointer",
-                                        }}
-                                        onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
-                                        onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
-                                    >
-                                        <option value="" disabled>Select position</option>
-                                        <option value="Lead Psychiatrist">Lead Psychiatrist</option>
-                                        <option value="Clinical Nurse">Clinical Nurse</option>
-                                        <option value="Therapist">Therapist</option>
-                                        <option value="Systems Admin">Systems Admin</option>
-                                        <option value="Security Officer">Security Officer</option>
-                                        <option value="Billing Specialist">Billing Specialist</option>
-                                        <option value="Compliance Officer">Compliance Officer</option>
-                                    </select>
-                                    <span className="material-symbols-outlined" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "var(--color-outline)", pointerEvents: "none" }}>expand_more</span>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>Position *</label>
+                                        <div style={{ position: "relative" }}>
+                                            <select
+                                                required
+                                                defaultValue=""
+                                                style={{
+                                                    width: "100%",
+                                                    padding: "10px 32px 10px 14px",
+                                                    borderRadius: 8,
+                                                    border: "1px solid var(--color-outline-variant)",
+                                                    background: "var(--color-surface-container-lowest)",
+                                                    fontSize: 14,
+                                                    color: "var(--color-on-surface)",
+                                                    outline: "none",
+                                                    transition: "border-color 0.15s",
+                                                    boxSizing: "border-box",
+                                                    appearance: "none",
+                                                    cursor: "pointer",
+                                                }}
+                                                onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
+                                                onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
+                                            >
+                                                <option value="" disabled>Select position</option>
+                                                <option value="Lead Psychiatrist">Lead Psychiatrist</option>
+                                                <option value="Clinical Nurse">Clinical Nurse</option>
+                                                <option value="Therapist">Therapist</option>
+                                                <option value="Systems Admin">Systems Admin</option>
+                                                <option value="Security Officer">Security Officer</option>
+                                                <option value="Billing Specialist">Billing Specialist</option>
+                                                <option value="Compliance Officer">Compliance Officer</option>
+                                            </select>
+                                            <span className="material-symbols-outlined" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 18, color: "var(--color-outline)", pointerEvents: "none" }}>expand_more</span>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {activeTab === 'permissions' && (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                                    <p style={{ fontSize: 14, color: "var(--color-on-surface-variant)", margin: 0, lineHeight: 1.5 }}>
+                                        Configure access permissions for the new staff member. Check the boxes to grant permissions for each resource.
+                                    </p>
+                                    
+                                    <div style={{ overflowX: "auto" }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: "2px solid var(--color-outline-variant)" }}>
+                                                    <th style={{ 
+                                                        padding: "12px 16px", 
+                                                        textAlign: "left", 
+                                                        fontSize: 12, 
+                                                        fontWeight: 700, 
+                                                        textTransform: "uppercase", 
+                                                        letterSpacing: "0.05em", 
+                                                        color: "var(--color-on-surface-variant)" 
+                                                    }}>
+                                                        Resource
+                                                    </th>
+                                                    {PERMISSIONS.map(perm => (
+                                                        <th key={perm.key} style={{ 
+                                                            padding: "12px 8px", 
+                                                            textAlign: "center", 
+                                                            fontSize: 12, 
+                                                            fontWeight: 700, 
+                                                            textTransform: "uppercase", 
+                                                            letterSpacing: "0.05em", 
+                                                            color: "var(--color-on-surface-variant)" 
+                                                        }}>
+                                                            {perm.label}
+                                                        </th>
+                                                    ))}
+                                                    <th style={{ 
+                                                        padding: "12px 16px", 
+                                                        textAlign: "center", 
+                                                        fontSize: 12, 
+                                                        fontWeight: 700, 
+                                                        textTransform: "uppercase", 
+                                                        letterSpacing: "0.05em", 
+                                                        color: "var(--color-on-surface-variant)" 
+                                                    }}>
+                                                        Actions
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {RESOURCES.map(resource => {
+                                                    const resourcePerms = permissions[resource.key] || [];
+                                                    return (
+                                                        <tr key={resource.key} style={{ 
+                                                            borderBottom: "1px solid var(--color-outline-variant)",
+                                                            background: "var(--color-surface-container-lowest)"
+                                                        }}>
+                                                            <td style={{ 
+                                                                padding: "12px 16px", 
+                                                                fontSize: 14, 
+                                                                fontWeight: 600, 
+                                                                color: "var(--color-on-surface)" 
+                                                            }}>
+                                                                {resource.label}
+                                                            </td>
+                                                            {PERMISSIONS.map(perm => (
+                                                                <td key={perm.key} style={{ 
+                                                                    padding: "12px 8px", 
+                                                                    textAlign: "center" 
+                                                                }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={resourcePerms.includes(perm.key)}
+                                                                        onChange={() => togglePermission(resource.key, perm.key)}
+                                                                        style={{
+                                                                            width: 18,
+                                                                            height: 18,
+                                                                            cursor: "pointer",
+                                                                            accentColor: "var(--color-primary-container)"
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                            ))}
+                                                            <td style={{ 
+                                                                padding: "12px 16px", 
+                                                                textAlign: "center" 
+                                                            }}>
+                                                                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => selectAllForResource(resource.key)}
+                                                                        style={{
+                                                                            padding: "4px 12px",
+                                                                            fontSize: 11,
+                                                                            fontWeight: 600,
+                                                                            borderRadius: 6,
+                                                                            border: "1px solid var(--color-outline-variant)",
+                                                                            background: "transparent",
+                                                                            color: "var(--color-on-surface-variant)",
+                                                                            cursor: "pointer",
+                                                                            transition: "all 0.12s"
+                                                                        }}
+                                                                        onMouseOver={(e) => {
+                                                                            e.currentTarget.style.background = "var(--color-surface-container)";
+                                                                            e.currentTarget.style.borderColor = "var(--color-outline)";
+                                                                        }}
+                                                                        onMouseOut={(e) => {
+                                                                            e.currentTarget.style.background = "transparent";
+                                                                            e.currentTarget.style.borderColor = "var(--color-outline-variant)";
+                                                                        }}
+                                                                    >
+                                                                        All
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => clearAllForResource(resource.key)}
+                                                                        style={{
+                                                                            padding: "4px 12px",
+                                                                            fontSize: 11,
+                                                                            fontWeight: 600,
+                                                                            borderRadius: 6,
+                                                                            border: "1px solid var(--color-outline-variant)",
+                                                                            background: "transparent",
+                                                                            color: "var(--color-error)",
+                                                                            cursor: "pointer",
+                                                                            transition: "all 0.12s"
+                                                                        }}
+                                                                        onMouseOver={(e) => {
+                                                                            e.currentTarget.style.background = "#fce8e8";
+                                                                            e.currentTarget.style.borderColor = "var(--color-error)";
+                                                                        }}
+                                                                        onMouseOut={(e) => {
+                                                                            e.currentTarget.style.background = "transparent";
+                                                                            e.currentTarget.style.borderColor = "var(--color-outline-variant)";
+                                                                        }}
+                                                                    >
+                                                                        None
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Footer */}
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 10, borderTop: "1px solid var(--color-outline-variant)" }}>
+                                {activeTab === 'permissions' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('profile')}
+                                        style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid var(--color-outline-variant)", background: "transparent", fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", cursor: "pointer", transition: "background 0.12s" }}
+                                        onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-surface-container)")}
+                                        onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                                    >
+                                        Back
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={onClose}
@@ -244,8 +482,10 @@ export default function StaffFormModal({ onClose }: Props) {
                                     onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-primary)")}
                                     onMouseOut={(e) => (e.currentTarget.style.background = "var(--color-primary-container)")}
                                 >
-                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>person_add</span>
-                                    Create Staff Member
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                                        {activeTab === 'profile' ? 'arrow_forward' : 'person_add'}
+                                    </span>
+                                    {activeTab === 'profile' ? 'Next' : 'Create Staff Member'}
                                 </button>
                             </div>
                         </form>
@@ -273,9 +513,7 @@ export default function StaffFormModal({ onClose }: Props) {
             )}
 
             {/* Success Modal */}
-            {showSuccessModal && (
-                <StaffCreatedModal onClose={handleDone} />
-            )}
+            {showSuccessModal && <StaffCreatedModal onClose={handleDone} />}
         </>
     );
 }

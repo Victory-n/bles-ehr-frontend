@@ -1031,26 +1031,81 @@ function AppearanceTab({ onSave }: { onSave: (msg: string) => void }) {
    Tab 5: Roles & Permissions
    ══════════════════════════════════════════════════════════════════════════ */
 
+// Define resources and permissions
+const RESOURCES = [
+    { key: "p", label: "Patient" },
+    { key: "pr", label: "Programs" },
+    { key: "cn", label: "Clinic Notes" },
+    { key: "s", label: "Staff" },
+    { key: "b", label: "Billing" },
+    { key: "c", label: "Compliance" },
+    { key: "al", label: "Audit Log" }
+];
+
+const PERMISSIONS = [
+    { key: 1, label: "Create" },
+    { key: 2, label: "Read" },
+    { key: 3, label: "Update" },
+    { key: 4, label: "Write" },
+    { key: 5, label: "Delete" }
+];
+
 function RolesPermissionsTab() {
-    const [selectedRole, setSelectedRole] = useState(ROLES_DATA[0]);
+    const [selectedStaff, setSelectedStaff] = useState<any>(null);
+    const [permissions, setPermissions] = useState<Record<string, number[]>>({});
+
+    // Mock staff list
+    const staffList = [
+        { id: "EMP-4821", name: "Dr. Eleanor Vance", position: "Lead Psychiatrist" },
+        { id: "EMP-3196", name: "Marcus Thorne", position: "Clinical Nurse" },
+        { id: "EMP-1862", name: "Sarah Jenkins", position: "Systems Admin" }
+    ];
+
+    const togglePermission = (resourceKey: string, permissionKey: number) => {
+        setPermissions(prev => {
+            const current = prev[resourceKey] || [];
+            const updated = current.includes(permissionKey)
+                ? current.filter(p => p !== permissionKey)
+                : [...current, permissionKey];
+            return { ...prev, [resourceKey]: updated };
+        });
+    };
+
+    const selectAllForResource = (resourceKey: string) => {
+        setPermissions(prev => ({
+            ...prev,
+            [resourceKey]: PERMISSIONS.map(p => p.key)
+        }));
+    };
+
+    const clearAllForResource = (resourceKey: string) => {
+        setPermissions(prev => ({
+            ...prev,
+            [resourceKey]: []
+        }));
+    };
 
     return (
-        <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24, alignItems: "start" }}>
-            {/* Roles selector sidebar */}
+        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 24, alignItems: "start" }}>
+            {/* Staff selector sidebar */}
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--color-outline)", paddingLeft: 8 }}>
-                    Defined System Roles
+                    Staff Members
                 </div>
-                {ROLES_DATA.map((role) => {
-                    const isSelected = selectedRole.id === role.id;
+                {staffList.map((staff) => {
+                    const isSelected = selectedStaff?.id === staff.id;
                     return (
                         <div
-                            key={role.id}
-                            onClick={() => setSelectedRole(role)}
+                            key={staff.id}
+                            onClick={() => {
+                                setSelectedStaff(staff);
+                                // Reset permissions when selecting a new staff
+                                setPermissions({});
+                            }}
                             style={{
                                 display: "flex",
-                                alignItems: "center",
-                                gap: 10,
+                                flexDirection: "column",
+                                gap: 4,
                                 padding: "14px 16px",
                                 borderRadius: 10,
                                 background: isSelected ? "var(--color-surface-container)" : "var(--color-surface-container-lowest)",
@@ -1065,47 +1120,224 @@ function RolesPermissionsTab() {
                                 if (!isSelected) e.currentTarget.style.borderColor = "var(--color-outline-variant)";
                             }}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: 20, color: isSelected ? "var(--color-primary)" : "var(--color-outline)" }}>
-                                {role.id === "admin" ? "admin_panel_settings" : role.id === "clinician" ? "psychology" : role.id === "nurse" ? "medical_services" : "support_agent"}
-                            </span>
                             <span style={{ fontSize: 14, fontWeight: isSelected ? 700 : 500, color: "var(--color-on-surface)" }}>
-                                {role.name}
+                                {staff.name}
+                            </span>
+                            <span style={{ fontSize: 12, color: "var(--color-on-surface-variant)" }}>
+                                {staff.position}
                             </span>
                         </div>
                     );
                 })}
             </div>
 
-            {/* Role details & permissions panel */}
-            <Card title={`${selectedRole.name} Privileges`}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    <div>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 12, fontSize: 12, fontWeight: 600, background: "var(--color-surface-container-high)", color: "var(--color-primary-container)", marginBottom: 12 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>info</span>
-                            Role Definition
-                        </span>
-                        <p style={{ fontSize: 14, color: "var(--color-on-surface)", margin: 0, lineHeight: 1.5 }}>
-                            {selectedRole.description}
-                        </p>
-                    </div>
+            {/* Permission matrix panel */}
+            <Card title={selectedStaff ? `${selectedStaff.name} - Permission Matrix` : "Select a Staff Member to Configure Permissions"}>
+                {selectedStaff ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                        <div>
+                            <p style={{ fontSize: 14, color: "var(--color-on-surface-variant)", margin: 0, lineHeight: 1.5 }}>
+                                Configure access permissions for {selectedStaff.name}. Check the boxes to grant permissions for each resource.
+                            </p>
+                        </div>
 
-                    <hr style={{ border: "none", borderBottom: "1px solid var(--color-outline-variant)", margin: 0 }} />
+                        <div style={{ overflowX: "auto" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}>
+                                <thead>
+                                    <tr style={{ borderBottom: "2px solid var(--color-outline-variant)" }}>
+                                        <th style={{ 
+                                            padding: "12px 16px", 
+                                            textAlign: "left", 
+                                            fontSize: 12, 
+                                            fontWeight: 700, 
+                                            textTransform: "uppercase", 
+                                            letterSpacing: "0.05em", 
+                                            color: "var(--color-on-surface-variant)" 
+                                        }}>
+                                            Resource
+                                        </th>
+                                        {PERMISSIONS.map(perm => (
+                                            <th key={perm.key} style={{ 
+                                                padding: "12px 8px", 
+                                                textAlign: "center", 
+                                                fontSize: 12, 
+                                                fontWeight: 700, 
+                                                textTransform: "uppercase", 
+                                                letterSpacing: "0.05em", 
+                                                color: "var(--color-on-surface-variant)" 
+                                            }}>
+                                                {perm.label}
+                                            </th>
+                                        ))}
+                                        <th style={{ 
+                                            padding: "12px 16px", 
+                                            textAlign: "center", 
+                                            fontSize: 12, 
+                                            fontWeight: 700, 
+                                            textTransform: "uppercase", 
+                                            letterSpacing: "0.05em", 
+                                            color: "var(--color-on-surface-variant)" 
+                                        }}>
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {RESOURCES.map(resource => {
+                                        const resourcePerms = permissions[resource.key] || [];
+                                        return (
+                                            <tr key={resource.key} style={{ 
+                                                borderBottom: "1px solid var(--color-outline-variant)",
+                                                background: "var(--color-surface-container-lowest)"
+                                            }}>
+                                                <td style={{ 
+                                                    padding: "12px 16px", 
+                                                    fontSize: 14, 
+                                                    fontWeight: 600, 
+                                                    color: "var(--color-on-surface)" 
+                                                }}>
+                                                    {resource.label}
+                                                </td>
+                                                {PERMISSIONS.map(perm => (
+                                                    <td key={perm.key} style={{ 
+                                                        padding: "12px 8px", 
+                                                        textAlign: "center" 
+                                                    }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={resourcePerms.includes(perm.key)}
+                                                            onChange={() => togglePermission(resource.key, perm.key)}
+                                                            style={{
+                                                                width: 18,
+                                                                height: 18,
+                                                                cursor: "pointer",
+                                                                accentColor: "var(--color-primary-container)"
+                                                            }}
+                                                        />
+                                                    </td>
+                                                ))}
+                                                <td style={{ 
+                                                    padding: "12px 16px", 
+                                                    textAlign: "center" 
+                                                }}>
+                                                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                        <button
+                                                            onClick={() => selectAllForResource(resource.key)}
+                                                            style={{
+                                                                padding: "4px 12px",
+                                                                fontSize: 11,
+                                                                fontWeight: 600,
+                                                                borderRadius: 6,
+                                                                border: "1px solid var(--color-outline-variant)",
+                                                                background: "transparent",
+                                                                color: "var(--color-on-surface-variant)",
+                                                                cursor: "pointer",
+                                                                transition: "all 0.12s"
+                                                            }}
+                                                            onMouseOver={(e) => {
+                                                                e.currentTarget.style.background = "var(--color-surface-container)";
+                                                                e.currentTarget.style.borderColor = "var(--color-outline)";
+                                                            }}
+                                                            onMouseOut={(e) => {
+                                                                e.currentTarget.style.background = "transparent";
+                                                                e.currentTarget.style.borderColor = "var(--color-outline-variant)";
+                                                            }}
+                                                        >
+                                                            All
+                                                        </button>
+                                                        <button
+                                                            onClick={() => clearAllForResource(resource.key)}
+                                                            style={{
+                                                                padding: "4px 12px",
+                                                                fontSize: 11,
+                                                                fontWeight: 600,
+                                                                borderRadius: 6,
+                                                                border: "1px solid var(--color-outline-variant)",
+                                                                background: "transparent",
+                                                                color: "var(--color-error)",
+                                                                cursor: "pointer",
+                                                                transition: "all 0.12s"
+                                                            }}
+                                                            onMouseOver={(e) => {
+                                                                e.currentTarget.style.background = "#fce8e8";
+                                                                e.currentTarget.style.borderColor = "var(--color-error)";
+                                                            }}
+                                                            onMouseOut={(e) => {
+                                                                e.currentTarget.style.background = "transparent";
+                                                                e.currentTarget.style.borderColor = "var(--color-outline-variant)";
+                                                            }}
+                                                        >
+                                                            None
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
 
-                    <div>
-                        <h4 style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--color-outline)", margin: "0 0 16px" }}>
-                            Access Control & Security Permissions
-                        </h4>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 24px" }}>
-                            <PermissionIndicator label="Read Patient PHI records" active={selectedRole.permissions.phiRead} />
-                            <PermissionIndicator label="Write/Edit clinical notes & logs" active={selectedRole.permissions.phiWrite} />
-                            <PermissionIndicator label="Hard-delete database health records" active={selectedRole.permissions.recordsDelete} />
-                            <PermissionIndicator label="Manage user staff accounts & roster" active={selectedRole.permissions.staffManage} />
-                            <PermissionIndicator label="Process billing, claims & invoices" active={selectedRole.permissions.billingManage} />
-                            <PermissionIndicator label="View system audit logs & timeline" active={selectedRole.permissions.auditView} />
-                            <PermissionIndicator label="Modify platform global config settings" active={selectedRole.permissions.systemConfigure} />
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 10, borderTop: "1px solid var(--color-outline-variant)" }}>
+                            <button
+                                style={{
+                                    padding: "10px 20px",
+                                    borderRadius: 8,
+                                    border: "1px solid var(--color-outline-variant)",
+                                    background: "transparent",
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    color: "var(--color-on-surface)",
+                                    cursor: "pointer",
+                                    transition: "background 0.12s"
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = "var(--color-surface-container)"}
+                                onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    padding: "10px 20px",
+                                    borderRadius: 8,
+                                    border: "none",
+                                    background: "var(--color-primary-container)",
+                                    color: "#ffffff",
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    transition: "background 0.15s"
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = "var(--color-primary)"}
+                                onMouseOut={(e) => e.currentTarget.style.background = "var(--color-primary-container)"}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>save</span>
+                                Save Permissions
+                            </button>
                         </div>
                     </div>
-                </div>
+                ) : (
+                    <div style={{ 
+                        padding: "60px 20px", 
+                        textAlign: "center", 
+                        color: "var(--color-on-surface-variant)" 
+                    }}>
+                        <span className="material-symbols-outlined" style={{ 
+                            fontSize: 48, 
+                            color: "var(--color-outline)", 
+                            marginBottom: 16,
+                            display: "block"
+                        }}>
+                            admin_panel_settings
+                        </span>
+                        <p style={{ fontSize: 14, margin: 0 }}>
+                            Select a staff member from the sidebar to configure their permissions.
+                        </p>
+                    </div>
+                )}
             </Card>
         </div>
     );

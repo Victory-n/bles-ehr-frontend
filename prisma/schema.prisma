@@ -7,96 +7,95 @@ generator client {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  firstname     String
-  lastname      String
-  sex           String
-  dateofbirth   DateTime
-  email         String   @unique
-  password      String
-  status        String   @default("Active") // Active, Inactive, Suspended
-  permissions   Json     @default("{}") // RBAC permissions structure
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  patients      Patient[]
-  auditLogs     AuditLog[]
+  id                String     @id @default(uuid())
+  firstname         String
+  lastname          String
+  sex               String
+  dateofbirth       DateTime
+  email             String     @unique
+  password          String
+  status            String     @default("Active") // Active, Inactive, Suspended
+  permissions       Json       @default("{}") // RBAC permissions structure
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  patients          Patient[]
+  auditLogs         AuditLog[]
   uploadedDocuments Document[]
 }
 
 model Patient {
-  id                  String   @id @default(uuid())
-  patientId           String   @unique
-  firstname           String
-  lastname            String
-  dateOfBirth         DateTime
-  gender              String
-  status              String
-  staffId             String
-  staff               User     @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  contactInformation  Json     @default("{}")
-  emergencyContact    Json     @default("{}")
-  intakeNotes         Json     @default("{}")
-  deletedAt           DateTime?
-  deletedBy           String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  patientPrograms     PatientProgram[]
-  documents           Document[]
+  id                 String           @id @default(uuid())
+  patientId          String           @unique
+  firstname          String
+  lastname           String
+  dateOfBirth        DateTime
+  gender             String
+  status             String
+  staffId            String
+  staff              User             @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  contactInformation Json             @default("{}")
+  emergencyContact   Json             @default("{}")
+  intakeNotes        Json             @default("{}")
+  deletedAt          DateTime?
+  deletedBy          String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  patientPrograms    PatientProgram[]
+  documents          Document[]
 }
 
 model Program {
-  id            String   @id @default(uuid())
-  programId     String   @unique
-  name          String
-  type          String   // PHP, POP, IOP
-  sessionType   String   // Group, Single
-  status        String   // Active, Closed, Paused
-  deletedAt     DateTime?
-  deletedBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  auditLogs     AuditLog[]
+  id              String           @id @default(uuid())
+  programId       String           @unique
+  name            String
+  type            String // PHP, POP, IOP
+  sessionType     String // Group, Single
+  status          String // Active, Closed, Paused
+  deletedAt       DateTime?
+  deletedBy       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   patientPrograms PatientProgram[]
 }
 
 model PatientProgram {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   patientId   String
-  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   programId   String
-  program     Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
-  status      String   // Active, Inactive, Completed
-  enrolledAt  DateTime @default(now())
+  program     Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  status      String // Active, Inactive, Completed
+  enrolledAt  DateTime  @default(now())
   completedAt DateTime?
   deletedAt   DateTime?
   deletedBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([patientId, programId])
 }
 
 model Document {
-  id          String   @id @default(uuid())
-  documentId  String   @unique
-  name        String
-  type        String   // PDF, DOC, etc.
-  filePath    String
-  patientId   String
-  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid())
+  documentId   String    @unique
+  name         String
+  type         String // PDF, DOC, etc.
+  filePath     String
+  patientId    String
+  patient      Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   uploadedById String
-  uploadedBy  User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
-  deletedAt   DateTime?
-  deletedBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  deletedAt    DateTime?
+  deletedBy    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model AuditLog {
   id            String   @id @default(uuid())
-  action        String   // CREATE, UPDATE, DELETE, SOFT_DELETE
-  modelName     String   // e.g., "Patient", "User", "ClinicNote"
-  recordId      String   // ID of the record that changed
+  action        String // CREATE, UPDATE, DELETE, SOFT_DELETE
+  modelName     String // e.g., "Patient", "User", "ClinicNote"
+  recordId      String // ID of the record that changed
   changes       Json     @default("{}") // Old and new values
   performedById String
   performedBy   User     @relation(fields: [performedById], references: [id], onDelete: Cascade)
