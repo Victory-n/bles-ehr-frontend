@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 
 /* ══════════════════════════════════════════════════════════════════════════
    Patient Form Modal — shared between Add & Edit flows
@@ -36,9 +37,20 @@ export default function PatientFormModal({ mode, initialData, onClose, onSave }:
   const title = isEdit ? "Edit Patient" : "Add New Patient";
   const icon = isEdit ? "edit" : "person_add";
   const saveLabel = isEdit ? "Update Patient" : "Save Patient";
+  const [pinSet, setPinSet] = useState(false);
+  const [showSetPinModal, setShowSetPinModal] = useState(false);
+  const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!pinSet) {
+      setShowSetPinModal(true);
+    } else {
+      setShowVerifyPinModal(true);
+    }
+  };
+
+  const completeAction = () => {
     onSave?.({});
     onClose();
   };
@@ -199,6 +211,25 @@ export default function PatientFormModal({ mode, initialData, onClose, onSave }:
           </div>
         </form>
       </div>
+
+      {/* PIN Modals */}
+      {showSetPinModal && (
+        <SetPinModal 
+          onClose={() => {
+            setShowSetPinModal(false);
+            setPinSet(true);
+            completeAction();
+          }} 
+        />
+      )}
+      {showVerifyPinModal && (
+        <VerifyPinModal 
+          onClose={() => {
+            setShowVerifyPinModal(false);
+            completeAction();
+          }} 
+        />
+      )}
     </div>
   );
 }

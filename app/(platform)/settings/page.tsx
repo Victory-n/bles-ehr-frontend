@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { SetPinModal } from "@/components/PinModal";
 
 /* ══════════════════════════════════════════════════════════════════════════
    Mock Settings Data
@@ -483,6 +484,8 @@ function SecurityTab({ onSave }: { onSave: (msg: string) => void }) {
     const [newPass, setNewPass] = useState("");
     const [confirmPass, setConfirmPass] = useState("");
     const [twoFactor, setTwoFactor] = useState(true);
+    const [pinSet, setPinSet] = useState(false);
+    const [showSetPinModal, setShowSetPinModal] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -496,114 +499,178 @@ function SecurityTab({ onSave }: { onSave: (msg: string) => void }) {
         onSave("Security settings and credentials updated successfully.");
     };
 
+    const handleTwoFactorChange = (checked: boolean) => {
+        setTwoFactor(checked);
+        if (checked && !pinSet) {
+            setShowSetPinModal(true);
+        }
+        onSave(checked ? "Two-factor authentication enabled successfully." : "Two-factor authentication disabled successfully.");
+    };
+
     return (
-        <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                <Card title="Change Password">
-                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                        <FormGroup label="Current Password" id="currentPass">
-                            <input
-                                type="password"
-                                id="currentPass"
-                                value={currentPass}
-                                onChange={e => setCurrentPass(e.target.value)}
-                                style={inputStyle}
-                                placeholder="••••••••"
-                                required
-                            />
-                        </FormGroup>
+        <>
+            <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                    <Card title="Change Password">
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                            <FormGroup label="Current Password" id="currentPass">
+                                <input
+                                    type="password"
+                                    id="currentPass"
+                                    value={currentPass}
+                                    onChange={e => setCurrentPass(e.target.value)}
+                                    style={inputStyle}
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </FormGroup>
 
-                        <FormGroup label="New Password" id="newPass">
-                            <input
-                                type="password"
-                                id="newPass"
-                                value={newPass}
-                                onChange={e => setNewPass(e.target.value)}
-                                style={inputStyle}
-                                placeholder="••••••••"
-                                required
-                            />
-                        </FormGroup>
+                            <FormGroup label="New Password" id="newPass">
+                                <input
+                                    type="password"
+                                    id="newPass"
+                                    value={newPass}
+                                    onChange={e => setNewPass(e.target.value)}
+                                    style={inputStyle}
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </FormGroup>
 
-                        <FormGroup label="Confirm New Password" id="confirmPass">
-                            <input
-                                type="password"
-                                id="confirmPass"
-                                value={confirmPass}
-                                onChange={e => setConfirmPass(e.target.value)}
-                                style={inputStyle}
-                                placeholder="••••••••"
-                                required
-                            />
-                        </FormGroup>
+                            <FormGroup label="Confirm New Password" id="confirmPass">
+                                <input
+                                    type="password"
+                                    id="confirmPass"
+                                    value={confirmPass}
+                                    onChange={e => setConfirmPass(e.target.value)}
+                                    style={inputStyle}
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </FormGroup>
+                        </div>
+                    </Card>
+
+                    <div>
+                        <button type="submit" style={saveBtnStyle}>Update Password</button>
                     </div>
-                </Card>
-
-                <div>
-                    <button type="submit" style={saveBtnStyle}>Update Password</button>
                 </div>
-            </div>
 
-            {/* Right side widgets */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                <Card title="Two-Factor Authentication">
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0, lineHeight: 1.5 }}>
-                            Add an extra layer of security to your clinical portal account to protect Patient Health Information (PHI).
-                        </p>
-                        <div style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "12px 16px",
-                            background: "var(--color-surface-container-low)",
-                            border: "1px solid var(--color-outline-variant)",
-                            borderRadius: 8,
-                            marginTop: 4
-                        }}>
-                            <div>
-                                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
-                                    2FA Verification
-                                </span>
-                                <span style={{ fontSize: 11, color: "var(--color-outline)", display: "block", marginTop: 2 }}>
-                                    Required at login
-                                </span>
+                {/* Right side widgets */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                    <Card title="Two-Factor Authentication">
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0, lineHeight: 1.5 }}>
+                                Add an extra layer of security to your clinical portal account to protect Patient Health Information (PHI).
+                            </p>
+                            <div style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "12px 16px",
+                                background: "var(--color-surface-container-low)",
+                                border: "1px solid var(--color-outline-variant)",
+                                borderRadius: 8,
+                                marginTop: 4
+                            }}>
+                                <div>
+                                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
+                                        2FA Verification
+                                    </span>
+                                    <span style={{ fontSize: 11, color: "var(--color-outline)", display: "block", marginTop: 2 }}>
+                                        Required at login
+                                    </span>
+                                </div>
+                                <Switch checked={twoFactor} onChange={handleTwoFactorChange} />
                             </div>
-                            <Switch checked={twoFactor} onChange={setTwoFactor} />
                         </div>
-                    </div>
-                </Card>
+                    </Card>
 
-                <Card title="Active Sessions">
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <div style={{ display: "flex", gap: 10 }}>
-                            <span className="material-symbols-outlined" style={{ color: "var(--color-primary-container)" }}>desktop_windows</span>
-                            <div>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
-                                    Chrome on Windows
-                                </span>
-                                <span style={{ fontSize: 11, color: "#137333", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, marginTop: 2 }}>
-                                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#137333" }} />
-                                    Active Now
-                                </span>
+                    <Card title="PIN for Sensitive Actions">
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0, lineHeight: 1.5 }}>
+                                Your 6-digit PIN is required for sensitive actions like updating patient information, discharging patients, and signing notes.
+                            </p>
+                            <div style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "12px 16px",
+                                background: "var(--color-surface-container-low)",
+                                border: "1px solid var(--color-outline-variant)",
+                                borderRadius: 8,
+                                marginTop: 4
+                            }}>
+                                <div>
+                                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
+                                        PIN Status
+                                    </span>
+                                    <span style={{ fontSize: 11, color: pinSet ? "#137333" : "var(--color-outline)", display: "block", marginTop: 2 }}>
+                                        {pinSet ? "PIN set" : "Not set"}
+                                    </span>
+                                </div>
+                                {twoFactor && (
+                                    <button
+                                        onClick={() => setShowSetPinModal(true)}
+                                        style={{
+                                            padding: "8px 16px",
+                                            borderRadius: 6,
+                                            border: "1px solid var(--color-primary-container)",
+                                            background: "transparent",
+                                            fontSize: 13,
+                                            fontWeight: 600,
+                                            color: "var(--color-primary-container)",
+                                            cursor: "pointer"
+                                        }}
+                                    >
+                                        {pinSet ? "Change PIN" : "Set PIN"}
+                                    </button>
+                                )}
                             </div>
                         </div>
-                        <hr style={{ border: "none", borderBottom: "1px solid var(--color-outline-variant)", margin: 0 }} />
-                        <div style={{ display: "flex", gap: 10 }}>
-                            <span className="material-symbols-outlined" style={{ color: "var(--color-outline)" }}>phone_iphone</span>
-                            <div>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
-                                    Safari on iPhone 15
-                                </span>
-                                <span style={{ fontSize: 11, color: "var(--color-on-surface-variant)", display: "block", marginTop: 2 }}>
-                                    Lagos, Nigeria • 2 days ago
-                                </span>
+                    </Card>
+
+                    <Card title="Active Sessions">
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            <div style={{ display: "flex", gap: 10 }}>
+                                <span className="material-symbols-outlined" style={{ color: "var(--color-primary-container)" }}>desktop_windows</span>
+                                <div>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
+                                        Chrome on Windows
+                                    </span>
+                                    <span style={{ fontSize: 11, color: "#137333", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, marginTop: 2 }}>
+                                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#137333" }} />
+                                        Active Now
+                                    </span>
+                                </div>
+                            </div>
+                            <hr style={{ border: "none", borderBottom: "1px solid var(--color-outline-variant)", margin: 0 }} />
+                            <div style={{ display: "flex", gap: 10 }}>
+                                <span className="material-symbols-outlined" style={{ color: "var(--color-outline)" }}>phone_iphone</span>
+                                <div>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
+                                        Safari on iPhone 15
+                                    </span>
+                                    <span style={{ fontSize: 11, color: "var(--color-on-surface-variant)", display: "block", marginTop: 2 }}>
+                                        Lagos, Nigeria • 2 days ago
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </Card>
-            </div>
-        </form>
+                    </Card>
+                </div>
+            </form>
+
+            {showSetPinModal && (
+                <SetPinModal 
+                    onClose={() => {
+                        setShowSetPinModal(false);
+                        setPinSet(true);
+                        onSave("PIN set successfully.");
+                    }} 
+                />
+            )}
+        </>
     );
 }
 

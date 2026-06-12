@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import StaffFormModal from "@/components/staff/StaffFormModal";
 
 /* ══════════════════════════════════════════════════════════════════════════
    Mock Staff Data
@@ -43,11 +44,39 @@ export default function StaffPage() {
     const [search, setSearch] = useState("");
     const [activeFilter, setActiveFilter] = useState<"All" | StaffCategory>("All");
     const [sortBy, setSortBy] = useState("Name (A-Z)");
+    const [showAddModal, setShowAddModal] = useState(false);
 
     const filtered = activeFilter === "All" ? STAFF : STAFF.filter((s) => s.category === activeFilter);
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+            {/* ── Add New Staff Button ────────────────────────────────────── */}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                    onClick={() => setShowAddModal(true)}
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "10px 20px",
+                        borderRadius: 8,
+                        border: "none",
+                        background: "var(--color-secondary)",
+                        color: "#ffffff",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        transition: "background 0.15s",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.background = "#005a61")}
+                    onMouseOut={(e) => (e.currentTarget.style.background = "var(--color-secondary)")}
+                >
+                    <span className="material-symbols-outlined" style={{ fontSize: 20 }}>person_add</span>
+                    Add New Staff
+                </button>
+            </div>
 
             {/* ── Filter tabs + Sort ──────────────────────────────────────── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
@@ -245,6 +274,9 @@ export default function StaffPage() {
                     <span className="material-symbols-outlined" style={{ fontSize: 18 }}>expand_more</span>
                 </button>
             </div>
+
+            {/* Add Staff Modal */}
+            {showAddModal && <StaffFormModal onClose={() => setShowAddModal(false)} />}
         </div>
     );
 }

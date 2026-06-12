@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 
 /* ══════════════════════════════════════════════════════════════════════════
    Mock Clinic Notes Data
@@ -39,6 +40,41 @@ export default function ClinicNotesPage() {
     const [departmentFilter, setDepartmentFilter] = useState("All");
     const [currentPage, setCurrentPage] = useState(1);
     const totalPages = Math.ceil(TOTAL / 10);
+    const [pinSet, setPinSet] = useState(false);
+    const [showSetPinModal, setShowSetPinModal] = useState(false);
+    const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
+    const [pendingFolderId, setPendingFolderId] = useState<string | null>(null);
+
+    const [isOpeningNewNote, setIsOpeningNewNote] = useState(false);
+
+    const handleOpenFolder = (folderId: string) => {
+        setPendingFolderId(folderId);
+        setIsOpeningNewNote(false);
+        if (!pinSet) {
+            setShowSetPinModal(true);
+        } else {
+            setShowVerifyPinModal(true);
+        }
+    };
+
+    const handleNewClinicNote = () => {
+        setIsOpeningNewNote(true);
+        setPendingFolderId(null);
+        if (!pinSet) {
+            setShowSetPinModal(true);
+        } else {
+            setShowVerifyPinModal(true);
+        }
+    };
+
+    const completeAction = () => {
+        if (isOpeningNewNote) {
+            // For now, just go to main clinic notes or maybe a new path, but let's just do nothing for UI
+            // Or you could pick a random folder for new note, but let's just close modal for demo
+        } else if (pendingFolderId) {
+            router.push(`/clinic-notes/${pendingFolderId}`);
+        }
+    };
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -56,7 +92,7 @@ export default function ClinicNotesPage() {
                     Clinic Notes
                 </h2>
                 <button
-                    onClick={() => {}}
+                    onClick={handleNewClinicNote}
                     style={{
                         display: "flex",
                         alignItems: "center",
@@ -193,7 +229,7 @@ export default function ClinicNotesPage() {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            router.push(`/clinic-notes/${note.folderId}`);
+                                            handleOpenFolder(note.folderId);
                                         }}
                                         style={{
                                             display: "inline-flex",
@@ -305,6 +341,25 @@ export default function ClinicNotesPage() {
                     </div>
                 </div>
             </div>
+
+            {/* PIN Modals */}
+            {showSetPinModal && (
+                <SetPinModal
+                    onClose={() => {
+                        setShowSetPinModal(false);
+                        setPinSet(true);
+                        completeAction();
+                    }}
+                />
+            )}
+            {showVerifyPinModal && (
+                <VerifyPinModal
+                    onClose={() => {
+                        setShowVerifyPinModal(false);
+                        completeAction();
+                    }}
+                />
+            )}
         </div>
     );
 }

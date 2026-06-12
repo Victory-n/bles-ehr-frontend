@@ -1,0 +1,184 @@
+"use client";
+
+import React, { useState } from "react";
+
+interface Props {
+  onClose: () => void;
+}
+
+export default function SetPinModal({ onClose }: Props) {
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // No backend logic - just close modal for UI demo
+    onClose();
+  };
+
+  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, max 6
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+    setPin(digits);
+  };
+
+  const handleConfirmPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+    setConfirmPin(digits);
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.45)",
+        backdropFilter: "blur(3px)",
+        padding: 24,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 540,
+          maxHeight: "90vh",
+          overflowY: "auto",
+          background: "#ffffff",
+          borderRadius: 14,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* ── Header ─────────────────────────────────────────────────── */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "20px 24px",
+            borderBottom: "1px solid var(--color-outline-variant)",
+            position: "sticky",
+            top: 0,
+            background: "#ffffff",
+            zIndex: 1,
+            borderRadius: "14px 14px 0 0",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 24, color: "var(--color-primary-container)" }}>
+              lock
+            </span>
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>
+              Set Your PIN
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-on-surface-variant)", padding: 4 }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 22 }}>close</span>
+          </button>
+        </div>
+
+        {/* ── Body ────────────────────────────────────────────────────── */}
+        <form
+          onSubmit={handleSubmit}
+          style={{ padding: "8px 24px 24px", display: "flex", flexDirection: "column", gap: 24 }}
+        >
+          <p style={{ fontSize: 14, color: "var(--color-on-surface-variant)", margin: 0 }}>
+            This 6-digit PIN will be required for sensitive actions to protect Patient Health Information (PHI).
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 6 }}>
+              Enter 6-digit PIN
+            </label>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              placeholder="••••••"
+              value={pin}
+              onChange={handlePinChange}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                borderRadius: 8,
+                border: "1px solid var(--color-outline-variant)",
+                background: "var(--color-surface-container-lowest)",
+                fontSize: 18,
+                fontFamily: "var(--font-mono)",
+                letterSpacing: 8,
+                textAlign: "center",
+                color: "var(--color-on-surface)",
+                outline: "none",
+                transition: "border-color 0.15s",
+              }}
+              onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
+            />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 6 }}>
+              Confirm PIN
+            </label>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              placeholder="••••••"
+              value={confirmPin}
+              onChange={handleConfirmPinChange}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                borderRadius: 8,
+                border: "1px solid var(--color-outline-variant)",
+                background: "var(--color-surface-container-lowest)",
+                fontSize: 18,
+                fontFamily: "var(--font-mono)",
+                letterSpacing: 8,
+                textAlign: "center",
+                color: "var(--color-on-surface)",
+                outline: "none",
+                transition: "border-color 0.15s",
+              }}
+              onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
+            />
+          </div>
+
+          {/* Footer */}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 8, borderTop: "1px solid var(--color-outline-variant)" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid var(--color-outline-variant)", background: "transparent", fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", cursor: "pointer", transition: "background 0.12s" }}
+              onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-surface-container)")}
+              onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 8, border: "none", background: "var(--color-primary-container)", color: "#ffffff", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
+              onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-primary)")}
+              onMouseOut={(e) => (e.currentTarget.style.background = "var(--color-primary-container)")}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>
+              Set PIN
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

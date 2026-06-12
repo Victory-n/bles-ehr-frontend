@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 
 /* ── Patient Mock Database ──────────────────────────────────────────────── */
 const MOCK_PATIENTS: Record<string, { name: string; dob: string }> = {
@@ -13,6 +14,10 @@ export default function NewClinicNotePage() {
   const params = useParams();
   const router = useRouter();
   const notesId = params.notesId as string;
+  const [pinSet, setPinSet] = useState(false);
+  const [showSetPinModal, setShowSetPinModal] = useState(false);
+  const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
+  const [isSigningNote, setIsSigningNote] = useState(false);
 
   const patient = MOCK_PATIENTS[notesId] || { name: "Abernathy, Sarah", dob: "04/12/1988" };
 
@@ -156,6 +161,21 @@ export default function NewClinicNotePage() {
 
   // Save/Sign Note handler
   const handleSaveNote = (isLocked: boolean) => {
+    if (isLocked) {
+      // Only require PIN for signing
+      setIsSigningNote(true);
+      if (!pinSet) {
+        setShowSetPinModal(true);
+      } else {
+        setShowVerifyPinModal(true);
+      }
+    } else {
+      // Save draft without PIN
+      completeSaveNote(false);
+    }
+  };
+
+  const completeSaveNote = (isLocked: boolean) => {
     const formattedDate = new Date().toLocaleDateString("en-US", {
       month: "short",
       day: "2-digit",
@@ -625,12 +645,31 @@ export default function NewClinicNotePage() {
             onMouseOut={(e) => e.currentTarget.style.opacity = "1"}
           >
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>lock</span>
-            Sign & Lock Note
+            Sign & Save Note
           </button>
 
         </div>
 
       </div>
+
+      {/* PIN Modals */}
+      {showSetPinModal && (
+        <SetPinModal
+          onClose={() => {
+            setShowSetPinModal(false);
+            setPinSet(true);
+            completeSaveNote(true);
+          }}
+        />
+      )}
+      {showVerifyPinModal && (
+        <VerifyPinModal
+          onClose={() => {
+            setShowVerifyPinModal(false);
+            completeSaveNote(true);
+          }}
+        />
+      )}
 
     </div>
   );
