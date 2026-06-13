@@ -249,12 +249,12 @@ function MyProfileTab({ onSave }: { onSave: (msg: string) => void }) {
                 firstName: f,
                 lastName: l,
                 email: user.email || "",
-                phone: user.jsonColumn?.phone || "",
-                title: user.jsonColumn?.title || "",
-                department: user.jsonColumn?.department || "",
+                phone: user.extendedInfo?.phone || "",
+                title: user.extendedInfo?.title || "",
+                department: user.extendedInfo?.department || "",
                 dob: user.dateofbirth ? user.dateofbirth.split("T")[0] : "",
                 sex: user.sex || "Female",
-                bio: user.jsonColumn?.bio || ""
+                bio: user.extendedInfo?.bio || ""
             });
             const fChar = f.charAt(0).toUpperCase();
             const lChar = l.charAt(0).toUpperCase();

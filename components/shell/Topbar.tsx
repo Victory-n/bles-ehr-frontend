@@ -21,7 +21,7 @@ export default function Topbar({
 
   const fullName = user ? `${user.firstname} ${user.lastname}` : "Dr. E. Vance";
   const userRoleName = user
-    ? (user.role === 1 ? "System Admin" : (user.jsonColumn?.title ?? "Lead Clinician"))
+    ? (user.role === 1 ? "System Admin" : (user.extendedInfo?.title ?? "Lead Clinician"))
     : "Lead Clinician";
   
   const initials = user

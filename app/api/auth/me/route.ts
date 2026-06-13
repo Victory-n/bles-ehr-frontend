@@ -30,8 +30,8 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: "First name, last name, and email are required" }, { status: 400 });
     }
 
-    // Merge existing jsonColumn metadata with new fields
-    const existingMeta = typeof user.jsonColumn === "object" && user.jsonColumn ? (user.jsonColumn as Record<string, any>) : {};
+    // Merge existing extendedInfo metadata with new fields
+    const existingMeta = typeof user.extendedInfo === "object" && user.extendedInfo ? (user.extendedInfo as Record<string, any>) : {};
     const updatedMeta = {
       ...existingMeta,
       phone: phone ?? existingMeta.phone,
@@ -48,7 +48,7 @@ export async function PUT(req: Request) {
         email,
         sex: sex ?? user.sex,
         dateofbirth: dateofbirth ? new Date(dateofbirth) : user.dateofbirth,
-        jsonColumn: updatedMeta,
+        extendedInfo: updatedMeta,
       },
     });
 

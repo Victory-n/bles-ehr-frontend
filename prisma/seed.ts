@@ -14,6 +14,17 @@ async function main() {
 
   const passwordHash = await bcrypt.hash("Admin1234", 10);
 
+  // Full permissions for admin
+  const adminPermissions = {
+    p: [1, 2, 3, 4, 5],    // Patient: Create, Read, Update, Write, Delete
+    pr: [1, 2, 3, 4, 5],   // Programs
+    cn: [1, 2, 3, 4, 5],   // Clinic Notes
+    s: [1, 2, 3, 4, 5],    // Staff
+    b: [1, 2, 3, 4, 5],    // Billing
+    c: [1, 2, 3, 4, 5],    // Compliance
+    al: [1, 2, 3, 4, 5]    // Audit Log
+  };
+
   const mia = await prisma.user.create({
     data: {
       email,
@@ -22,8 +33,10 @@ async function main() {
       lastname: "Bles",
       sex: "Female",
       dateofbirth: new Date("1995-04-12"),
-      role: 1, // 1 for admin
-      jsonColumn: {
+      role: 1,
+      status: "Active",
+      permissions: adminPermissions,
+      extendedInfo: {
         title: "Clinical Director",
         department: "Administration"
       }

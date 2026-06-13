@@ -11,7 +11,7 @@ export interface User {
   dateofbirth: string;
   email: string;
   role: number;
-  jsonColumn: {
+  extendedInfo: {
     phone?: string;
     title?: string;
     department?: string;
