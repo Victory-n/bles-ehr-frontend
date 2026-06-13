@@ -9,11 +9,41 @@ interface Props {
 export default function SetPinModal({ onClose }: Props) {
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // No backend logic - just close modal for UI demo
-    onClose();
+    if (pin.length !== 6 || confirmPin.length !== 6) {
+      setError("PIN must be 6 digits.");
+      return;
+    }
+    if (pin !== confirmPin) {
+      setError("PINs do not match.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+
+      if (res.ok) {
+        onClose();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.message || "Failed to set PIN.");
+      }
+    } catch (err) {
+      setError("A network error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,6 +126,12 @@ export default function SetPinModal({ onClose }: Props) {
             This 6-digit PIN will be required for sensitive actions to protect Patient Health Information (PHI).
           </p>
 
+          {error && (
+            <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--color-error-container)", color: "var(--color-on-error-container)", fontSize: 13, fontWeight: 600 }}>
+              {error}
+            </div>
+          )}
+
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 6 }}>
               Enter 6-digit PIN
@@ -169,12 +205,13 @@ export default function SetPinModal({ onClose }: Props) {
             </button>
             <button
               type="submit"
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 8, border: "none", background: "var(--color-primary-container)", color: "#ffffff", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
-              onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-primary)")}
-              onMouseOut={(e) => (e.currentTarget.style.background = "var(--color-primary-container)")}
+              disabled={loading}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 20px", borderRadius: 8, border: "none", background: "var(--color-primary-container)", color: "#ffffff", fontSize: 14, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1, transition: "background 0.15s" }}
+              onMouseOver={(e) => !loading && (e.currentTarget.style.background = "var(--color-primary)")}
+              onMouseOut={(e) => !loading && (e.currentTarget.style.background = "var(--color-primary-container)")}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>
-              Set PIN
+              {loading ? "Saving..." : "Set PIN"}
             </button>
           </div>
         </form>

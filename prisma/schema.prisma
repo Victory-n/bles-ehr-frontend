@@ -14,6 +14,8 @@ model User {
   dateofbirth       DateTime
   email             String     @unique
   password          String     @default("") // Hashed password
+  pin               String?    // Hashed PIN for 2FA
+  twoFactorEnabled  Boolean    @default(false)
   role              Int        @default(0) // 0 for staff, 1 for admin
   status            String     @default("Active") // Active, Inactive, Suspended
   extendedInfo      Json       @default("{}") // Extra information structure

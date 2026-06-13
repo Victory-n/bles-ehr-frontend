@@ -11,6 +11,8 @@ export interface User {
   dateofbirth: string;
   email: string;
   role: number;
+  twoFactorEnabled: boolean;
+  hasPin: boolean;
   extendedInfo: {
     phone?: string;
     title?: string;

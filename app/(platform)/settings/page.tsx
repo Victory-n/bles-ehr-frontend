@@ -480,12 +480,20 @@ function MyProfileTab({ onSave }: { onSave: (msg: string) => void }) {
    ══════════════════════════════════════════════════════════════════════════ */
 
 function SecurityTab({ onSave }: { onSave: (msg: string) => void }) {
+    const { user, refreshUser } = useAuth();
     const [currentPass, setCurrentPass] = useState("");
     const [newPass, setNewPass] = useState("");
     const [confirmPass, setConfirmPass] = useState("");
-    const [twoFactor, setTwoFactor] = useState(true);
+    const [twoFactor, setTwoFactor] = useState(false);
     const [pinSet, setPinSet] = useState(false);
     const [showSetPinModal, setShowSetPinModal] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            setTwoFactor(user.twoFactorEnabled || false);
+            setPinSet(user.hasPin || false);
+        }
+    }, [user]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -499,12 +507,36 @@ function SecurityTab({ onSave }: { onSave: (msg: string) => void }) {
         onSave("Security settings and credentials updated successfully.");
     };
 
-    const handleTwoFactorChange = (checked: boolean) => {
-        setTwoFactor(checked);
+    const handleTwoFactorChange = async (checked: boolean) => {
+        if (user?.twoFactorEnabled && !checked) {
+            alert("Disabling 2FA is not allowed once enabled.");
+            return;
+        }
+
         if (checked && !pinSet) {
             setShowSetPinModal(true);
+            return;
         }
-        onSave(checked ? "Two-factor authentication enabled successfully." : "Two-factor authentication disabled successfully.");
+
+        try {
+            const res = await fetch("/api/auth/me", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ twoFactorEnabled: checked })
+            });
+
+            if (res.ok) {
+                setTwoFactor(checked);
+                await refreshUser();
+                onSave("Two-factor authentication enabled successfully.");
+            } else {
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || "Failed to update 2FA status.");
+            }
+        } catch (error) {
+            console.error("Error updating 2FA:", error);
+            alert("A network error occurred.");
+        }
     };
 
     return (
@@ -581,7 +613,7 @@ function SecurityTab({ onSave }: { onSave: (msg: string) => void }) {
                                         Required at login
                                     </span>
                                 </div>
-                                <Switch checked={twoFactor} onChange={handleTwoFactorChange} />
+                                <Switch checked={twoFactor} onChange={handleTwoFactorChange} disabled={user?.twoFactorEnabled} />
                             </div>
                         </div>
                     </Card>
@@ -666,6 +698,7 @@ function SecurityTab({ onSave }: { onSave: (msg: string) => void }) {
                     onClose={() => {
                         setShowSetPinModal(false);
                         setPinSet(true);
+                        refreshUser();
                         onSave("PIN set successfully.");
                     }} 
                 />

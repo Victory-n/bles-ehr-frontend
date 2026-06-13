@@ -16,9 +16,9 @@ export async function getCurrentUser() {
 
     if (!user) return null;
 
-    // Exclude password from the returned user object
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    // Exclude password and pin from the returned user object
+    const { password, pin, ...userWithoutPassword } = user;
+    return { ...userWithoutPassword, hasPin: !!pin };
   } catch (error) {
     console.error("Error in getCurrentUser guard:", error);
     return null;
