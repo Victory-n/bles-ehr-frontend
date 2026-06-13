@@ -4,9 +4,10 @@ import React, { useState } from "react";
 
 interface Props {
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function VerifyPinModal({ onClose }: Props) {
+export default function VerifyPinModal({ onClose, onSuccess }: Props) {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -29,6 +30,7 @@ export default function VerifyPinModal({ onClose }: Props) {
       });
 
       if (res.ok) {
+        if (onSuccess) onSuccess();
         onClose();
       } else {
         const data = await res.json().catch(() => ({}));

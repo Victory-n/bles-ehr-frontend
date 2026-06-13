@@ -1,21 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import PatientFormModal from "@/components/patients/PatientFormModal";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 import ImportModal from "@/components/ImportModal";
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Mock Patient Data
+   Types & Constants
 ══════════════════════════════════════════════════════════════════════════ */
 
 type PatientStatus = "Active" | "Inactive" | "Pending";
 
 interface Patient {
     id: string;
-    name: string;
+    patientId: string;
+    firstname: string;
+    lastname: string;
+    dateOfBirth: string;
+    gender: string;
     status: PatientStatus;
+    contactInformation: { phone?: string; email?: string; address?: string; city?: string; zip?: string };
+    emergencyContact: { name?: string; relationship?: string; phone?: string };
+    intakeNotes: { diagnosis?: string; notes?: string };
+    createdAt: string;
 }
 
 const STATUS_STYLES: Record<PatientStatus, { bg: string; color: string; dot: string; label: string }> = {
@@ -24,43 +33,62 @@ const STATUS_STYLES: Record<PatientStatus, { bg: string; color: string; dot: str
     Pending: { bg: "#f1f3f4", color: "#5f6368", dot: "#9aa0a6", label: "Pending" },
 };
 
-const PATIENTS: Patient[] = [
-    { id: "RC-84920", name: "Abernathy, Sarah", status: "Active" },
-    { id: "RC-84921", name: "Chen, Wei", status: "Active" },
-    { id: "RC-84922", name: "Doe, Jonathan", status: "Inactive" },
-    { id: "RC-84923", name: "Garcia, Maria", status: "Pending" },
-    { id: "RC-84924", name: "Johnson, Marcus", status: "Active" },
-    { id: "RC-84925", name: "Kim, Sun-Hee", status: "Active" },
-    { id: "RC-84926", name: "Martinez, Luis", status: "Active" },
-    { id: "RC-84927", name: "Patel, Ananya", status: "Pending" },
-    { id: "RC-84928", name: "Roberts, Emily", status: "Active" },
-    { id: "RC-84929", name: "Thompson, David", status: "Inactive" },
-];
-
-const TOTAL = 1248;
-const ASSIGNED = 982;
-const UNASSIGNED = 266;
+const PAGE_SIZE = 10;
 
 /* ══════════════════════════════════════════════════════════════════════════
    Patients Page
 ══════════════════════════════════════════════════════════════════════════ */
 export default function PatientsPage() {
     const router = useRouter();
+    const { user } = useAuth();
+    const [patients, setPatients] = useState<Patient[]>([]);
+    const [loadingPatients, setLoadingPatients] = useState(true);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [staffFilter, setStaffFilter] = useState("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [showAddModal, setShowAddModal] = useState(false);
-    const [pinSet, setPinSet] = useState(false);
     const [showSetPinModal, setShowSetPinModal] = useState(false);
     const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-    const totalPages = Math.ceil(TOTAL / 10);
+    const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+
+    const fetchPatients = useCallback(async () => {
+        try {
+            setLoadingPatients(true);
+            const res = await fetch("/api/patients");
+            if (res.ok) {
+                const data = await res.json();
+                setPatients(data.patients ?? []);
+            }
+        } catch (err) {
+            console.error("Failed to fetch patients:", err);
+        } finally {
+            setLoadingPatients(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchPatients(); }, [fetchPatients]);
+
+    /* ── Derived data ──────────────────────────────────────────────────── */
+    const filtered = patients.filter((p) => {
+        const name = `${p.lastname}, ${p.firstname}`.toLowerCase();
+        const matchesSearch = !search || name.includes(search.toLowerCase()) || p.patientId.toLowerCase().includes(search.toLowerCase());
+        const matchesStatus = statusFilter === "All" || p.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+
+    const totalFiltered = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+    const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+    const totalActive = patients.filter((p) => p.status === "Active").length;
+    const totalInactive = patients.filter((p) => p.status === "Inactive").length;
 
     const requirePinForAction = (action: () => void) => {
         setPendingAction(() => action);
-        if (!pinSet) {
+        if (!user?.hasPin) {
             setShowSetPinModal(true);
         } else {
             setShowVerifyPinModal(true);
@@ -79,9 +107,9 @@ export default function PatientsPage() {
 
             {/* ── Stat cards ─────────────────────────────────────────────────── */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-                <StatCard label="TOTAL PATIENTS" value={TOTAL.toLocaleString()} icon="groups" iconBg="var(--color-primary-container)" iconColor="#ffffff" />
-                <StatCard label="ASSIGNED PATIENTS" value={ASSIGNED.toLocaleString()} icon="person_check" iconBg="var(--color-secondary)" iconColor="#ffffff" />
-                <StatCard label="UNASSIGNED PATIENTS" value={UNASSIGNED.toLocaleString()} icon="person_off" iconBg="var(--color-tertiary-container)" iconColor="var(--color-on-tertiary-container)" />
+                <StatCard label="TOTAL PATIENTS" value={patients.length.toLocaleString()} icon="groups" iconBg="var(--color-primary-container)" iconColor="#ffffff" />
+                <StatCard label="ACTIVE PATIENTS" value={totalActive.toLocaleString()} icon="person_check" iconBg="var(--color-secondary)" iconColor="#ffffff" />
+                <StatCard label="INACTIVE PATIENTS" value={totalInactive.toLocaleString()} icon="person_off" iconBg="var(--color-tertiary-container)" iconColor="var(--color-on-tertiary-container)" />
             </div>
 
             {/* ── Header row ─────────────────────────────────────────────────── */}
@@ -246,13 +274,17 @@ export default function PatientsPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {PATIENTS.map((p, i) => {
-                            const st = STATUS_STYLES[p.status];
+                        {loadingPatients ? (
+                            <tr><td colSpan={5} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 14 }}>Loading patients…</td></tr>
+                        ) : paginated.length === 0 ? (
+                            <tr><td colSpan={5} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 14 }}>No patients found.</td></tr>
+                        ) : paginated.map((p, i) => {
+                            const st = STATUS_STYLES[p.status] ?? STATUS_STYLES.Pending;
                             return (
                                 <tr
                                     key={p.id}
                                     style={{
-                                        borderBottom: i < PATIENTS.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                                        borderBottom: i < paginated.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
                                         transition: "background 0.12s",
                                         cursor: "pointer",
                                     }}
@@ -261,15 +293,15 @@ export default function PatientsPage() {
                                 >
                                     {/* S/N */}
                                     <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: "var(--color-primary-container)" }}>
-                                        {i + 1}
+                                        {(currentPage - 1) * PAGE_SIZE + i + 1}
                                     </td>
                                     {/* Patient ID */}
                                     <td style={{ padding: "14px 20px", fontSize: 13, fontFamily: "var(--font-mono)", color: "var(--color-on-surface-variant)" }}>
-                                        {p.id}
+                                        {p.patientId}
                                     </td>
                                     {/* Name */}
                                     <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)" }}>
-                                        {p.name}
+                                        {p.lastname}, {p.firstname}
                                     </td>
                                     {/* Status */}
                                     <td style={{ padding: "14px 20px" }}>
@@ -291,9 +323,7 @@ export default function PatientsPage() {
                                     {/* Action */}
                                     <td style={{ padding: "14px 20px", textAlign: "right" }}>
                                         <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                                            <ActionBtn icon="visibility" title="View" onClick={() => router.push(`/patients/${p.id}`)} />
-                                            <ActionBtn icon="edit" title="Edit" onClick={() => requirePinForAction(() => console.log("Edit patient:", p.id))} />
-                                            <ActionBtn icon="delete" title="Delete" color="var(--color-error)" onClick={() => requirePinForAction(() => console.log("Delete patient:", p.id))} />
+                                            <ActionBtn icon="visibility" title="View" onClick={() => router.push(`/patients/${p.patientId}`)} />
                                         </div>
                                     </td>
                                 </tr>
@@ -312,7 +342,7 @@ export default function PatientsPage() {
                     background: "var(--color-surface-container-low)",
                 }}>
                     <span style={{ fontSize: 13, color: "var(--color-on-surface-variant)" }}>
-                        Showing 1 to 10 of {TOTAL.toLocaleString()} entries
+                        Showing {totalFiltered === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1} to {Math.min(currentPage * PAGE_SIZE, totalFiltered)} of {totalFiltered.toLocaleString()} entries
                     </span>
                     <div style={{ display: "flex", gap: 4 }}>
                         {[1, 2, 3].map((n) => (
@@ -380,21 +410,22 @@ export default function PatientsPage() {
             </div>
 
             {/* ── Add Patient Modal ──────────────────────────────────────────── */}
-            {showAddModal && <PatientFormModal mode="add" onClose={() => setShowAddModal(false)} />}
+            {showAddModal && <PatientFormModal mode="add" onClose={() => setShowAddModal(false)} onSave={() => fetchPatients()} />}
 
             {/* PIN Modals */}
             {showSetPinModal && (
                 <SetPinModal 
-                    onClose={() => {
+                    onClose={() => setShowSetPinModal(false)}
+                    onSuccess={() => {
                         setShowSetPinModal(false);
-                        setPinSet(true);
                         completePendingAction();
                     }} 
                 />
             )}
             {showVerifyPinModal && (
                 <VerifyPinModal 
-                    onClose={() => {
+                    onClose={() => setShowVerifyPinModal(false)}
+                    onSuccess={() => {
                         setShowVerifyPinModal(false);
                         completePendingAction();
                     }} 
