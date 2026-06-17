@@ -431,7 +431,7 @@ export default function PatientsPage() {
                     }} 
                 />
             )}
-            {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} />}
+            {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} onImportSuccess={fetchPatients} />}
         </div>
     );
 }
