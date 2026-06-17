@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { generateToken } from "../auth/jwt";
 import { setAuthCookie } from "../auth/cookies";
 
-export async function loginUser(email: string, password: string, expectedRole: number) {
+export async function loginUser(email: string, password: string) {
   if (!email || !password) {
     return { success: false, status: 400, message: "Email and password are required" };
   }
@@ -15,12 +15,6 @@ export async function loginUser(email: string, password: string, expectedRole: n
 
   if (!user) {
     return { success: false, status: 401, message: "Invalid credentials" };
-  }
-
-  // Check role
-  if (user.role !== expectedRole) {
-    const roleName = expectedRole === 1 ? "Admin" : "Staff";
-    return { success: false, status: 403, message: `Access denied. Not registered as ${roleName}.` };
   }
 
   // Verify password

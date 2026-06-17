@@ -24,3 +24,33 @@ export async function getCurrentUser() {
     return null;
   }
 }
+
+// Role constants
+export const ROLES = {
+  STAFF: 0,
+  ADMIN: 1
+};
+
+// Check if user has admin role
+export async function requireAdmin() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { authorized: false, user: null, status: 401, message: "Unauthorized" };
+  }
+  if (user.role !== ROLES.ADMIN) {
+    return { authorized: false, user, status: 403, message: "Access denied. Admin privileges required." };
+  }
+  return { authorized: true, user, status: 200, message: "Authorized" };
+}
+
+// Check if user has staff role (or admin, since admin can do everything staff can)
+export async function requireStaffOrAdmin() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { authorized: false, user: null, status: 401, message: "Unauthorized" };
+  }
+  if (user.role !== ROLES.STAFF && user.role !== ROLES.ADMIN) {
+    return { authorized: false, user, status: 403, message: "Access denied." };
+  }
+  return { authorized: true, user, status: 200, message: "Authorized" };
+}

@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 
-type TabType = "staff" | "admin";
-
 /** Inline SVG logo — no external image dependency */
 function BrightLifeLogo({ size = 56 }: { size?: number }) {
     return (
@@ -29,7 +27,6 @@ function BrightLifeLogo({ size = 56 }: { size?: number }) {
 }
 
 export default function LoginPage() {
-    const [activeTab, setActiveTab] = useState<TabType>("staff");
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -42,12 +39,7 @@ export default function LoginPage() {
 
         startTransition(async () => {
             try {
-                const endpoint =
-                    activeTab === "staff"
-                        ? "/api/auth/login"
-                        : "/api/auth/admin/login";
-
-                const res = await fetch(endpoint, {
+                const res = await fetch("/api/auth/login", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email, password }),
@@ -183,54 +175,13 @@ export default function LoginPage() {
                         </div>
                     </div>
 
-                    {/* ── Tab switcher ── */}
-                    <div
-                        className="flex items-center"
-                        style={{
-                            background: "var(--color-surface-container-low)",
-                            padding: 4,
-                            borderRadius: 8,
-                            border: "1px solid var(--color-outline-variant)",
-                        }}
-                    >
-                        {(["staff", "admin"] as TabType[]).map((tab) => {
-                            const isActive = activeTab === tab;
-                            return (
-                                <button
-                                    key={tab}
-                                    type="button"
-                                    onClick={() => { setActiveTab(tab); setError(null); }}
-                                    style={{
-                                        flex: 1,
-                                        padding: "8px 0",
-                                        borderRadius: 6,
-                                        fontSize: 14,
-                                        fontWeight: 600,
-                                        lineHeight: "16px",
-                                        letterSpacing: "0.01em",
-                                        transition: "all 0.18s ease",
-                                        cursor: "pointer",
-                                        border: isActive ? "1px solid var(--color-outline-variant)" : "1px solid transparent",
-                                        background: isActive ? "#ffffff" : "transparent",
-                                        color: isActive ? "var(--color-primary-container)" : "var(--color-on-surface-variant)",
-                                        boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
-                                    }}
-                                >
-                                    {tab === "staff" ? "Staff Login" : "Admin Portal"}
-                                </button>
-                            );
-                        })}
-                    </div>
-
                     {/* ── Heading ── */}
                     <div>
                         <h2 style={{ fontSize: 20, lineHeight: "28px", fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 4 }}>
-                            {activeTab === "staff" ? "Staff Sign In" : "Admin Sign In"}
+                            Sign In
                         </h2>
                         <p style={{ fontSize: 14, lineHeight: "20px", color: "var(--color-on-surface-variant)" }}>
-                            {activeTab === "staff"
-                                ? "Access clinical records and patient management tools."
-                                : "Access system settings and administrative controls."}
+                            Access clinical records, patient management tools, or administrative controls.
                         </p>
                     </div>
 
@@ -286,7 +237,7 @@ export default function LoginPage() {
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder={activeTab === "staff" ? "provider@brightlife.ng or STF-001" : "admin@brightlife.ng"}
+                                    placeholder="provider@brightlife.ng or admin@brightlife.ng"
                                     style={{
                                         width: "100%",
                                         fontSize: 16,
