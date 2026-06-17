@@ -4,13 +4,13 @@ import React from "react";
 
 interface Props {
     onClose: () => void;
+    staffId: string;
+    tempPassword: string;
 }
 
-export default function StaffCreatedModal({ onClose }: Props) {
+export default function StaffCreatedModal({ onClose, staffId, tempPassword }: Props) {
     const [copiedId, setCopiedId] = React.useState(false);
     const [copiedPassword, setCopiedPassword] = React.useState(false);
-    const staffId = "EMP-" + Math.floor(Math.random() * 90000 + 10000);
-    const tempPassword = Math.random().toString(36).slice(-8);
 
     const copyToClipboard = (text: string, type: "id" | "password") => {
         navigator.clipboard.writeText(text);

@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 import StaffCreatedModal from "./StaffCreatedModal";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 // Define resources and permissions for the form
 const RESOURCES = [
@@ -23,11 +24,9 @@ const PERMISSIONS = [
     { key: 5, label: "Delete" }
 ];
 
-interface StaffFormData {
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    position?: string;
+interface CreatedStaff {
+    staffId: string;
+    tempPassword: string;
 }
 
 interface Props {
@@ -35,30 +34,83 @@ interface Props {
 }
 
 export default function StaffFormModal({ onClose }: Props) {
-    const [pinSet, setPinSet] = React.useState(false);
-    const [showSetPinModal, setShowSetPinModal] = React.useState(false);
-    const [showVerifyPinModal, setShowVerifyPinModal] = React.useState(false);
-    const [showSuccessModal, setShowSuccessModal] = React.useState(false);
-    const [formVisible, setFormVisible] = React.useState(true);
-    const [activeTab, setActiveTab] = React.useState<'profile' | 'permissions'>('profile');
-    const [permissions, setPermissions] = React.useState<Record<string, number[]>>({});
+    const { user: currentUser, refreshUser } = useAuth();
+    const [showSetPinModal, setShowSetPinModal] = useState(false);
+    const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [formVisible, setFormVisible] = useState(true);
+    const [activeTab, setActiveTab] = useState<"profile" | "permissions">("profile");
+    const [permissions, setPermissions] = useState<Record<string, number[]>>({});
+    const [formData, setFormData] = useState({
+        firstname: "",
+        lastname: "",
+        email: "",
+        position: "",
+    });
+    const [createdStaff, setCreatedStaff] = useState<CreatedStaff | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (activeTab === 'profile') {
             setActiveTab('permissions');
         } else {
-            if (!pinSet) {
+            if (!currentUser) return;
+            // Check 2FA conditions
+            if (currentUser.hasPin && currentUser.twoFactorEnabled) {
+                // Pin filled and 2FA enabled - show verify modal
+                setShowVerifyPinModal(true);
+            } else if (!currentUser.hasPin && !currentUser.twoFactorEnabled) {
+                // Pin not set and 2FA disabled - show set pin modal
                 setShowSetPinModal(true);
             } else {
-                setShowVerifyPinModal(true);
+                // If neither condition matches, maybe just proceed? Or handle error?
+                // Let's proceed to create staff if in between state
+                await createStaffMember();
             }
         }
     };
 
-    const completeAction = () => {
-        setFormVisible(false);
-        setShowSuccessModal(true);
+    const createStaffMember = async () => {
+        setIsSubmitting(true);
+        try {
+            const res = await fetch("/api/staff", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "Application/json",
+                },
+                body: JSON.stringify({
+                    firstname: formData.firstname,
+                    lastname: formData.lastname,
+                    email: formData.email,
+                    position: formData.position,
+                    permissions: permissions,
+                }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setCreatedStaff({
+                    staffId: data.user.staffId,
+                    tempPassword: data.tempPassword,
+                });
+                setFormVisible(false);
+                setShowSuccessModal(true);
+            } else {
+                const errorData = await res.json();
+                alert(errorData.message || "Failed to create staff member");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Failed to create staff member");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handlePinSetSuccess = async () => {
+        await refreshUser(); // Refresh user to get updated hasPin value
+        await createStaffMember();
     };
 
     const handleDone = () => {
@@ -86,6 +138,13 @@ export default function StaffFormModal({ onClose }: Props) {
         setPermissions(prev => ({
             ...prev,
             [resourceKey]: []
+        }));
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setFormData(prev => ({
+            ...prev,
+            [e.target.name]: e.target.value,
         }));
     };
 
@@ -190,6 +249,9 @@ export default function StaffFormModal({ onClose }: Props) {
                                             <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>First Name *</label>
                                             <input
                                                 type="text"
+                                                name="firstname"
+                                                value={formData.firstname}
+                                                onChange={handleInputChange}
                                                 placeholder="Enter first name"
                                                 required
                                                 style={{
@@ -213,6 +275,9 @@ export default function StaffFormModal({ onClose }: Props) {
                                             <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>Last Name *</label>
                                             <input
                                                 type="text"
+                                                name="lastname"
+                                                value={formData.lastname}
+                                                onChange={handleInputChange}
                                                 placeholder="Enter last name"
                                                 required
                                                 style={{
@@ -237,6 +302,9 @@ export default function StaffFormModal({ onClose }: Props) {
                                         <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>Email *</label>
                                         <input
                                             type="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleInputChange}
                                             placeholder="staff@clinic.com"
                                             required
                                             style={{
@@ -260,8 +328,10 @@ export default function StaffFormModal({ onClose }: Props) {
                                         <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)" }}>Position *</label>
                                         <div style={{ position: "relative" }}>
                                             <select
+                                                name="position"
+                                                value={formData.position}
+                                                onChange={handleInputChange}
                                                 required
-                                                defaultValue=""
                                                 style={{
                                                     width: "100%",
                                                     padding: "10px 32px 10px 14px",
@@ -496,24 +566,25 @@ export default function StaffFormModal({ onClose }: Props) {
             {/* PIN Modals */}
             {showSetPinModal && (
                 <SetPinModal
-                    onClose={() => {
-                        setShowSetPinModal(false);
-                        setPinSet(true);
-                        completeAction();
-                    }}
+                    onClose={() => setShowSetPinModal(false)}
+                    onSuccess={handlePinSetSuccess}
                 />
             )}
             {showVerifyPinModal && (
                 <VerifyPinModal
-                    onClose={() => {
-                        setShowVerifyPinModal(false);
-                        completeAction();
-                    }}
+                    onClose={() => setShowVerifyPinModal(false)}
+                    onSuccess={createStaffMember}
                 />
             )}
 
             {/* Success Modal */}
-            {showSuccessModal && <StaffCreatedModal onClose={handleDone} />}
+            {showSuccessModal && createdStaff && (
+                <StaffCreatedModal
+                    onClose={handleDone}
+                    staffId={createdStaff.staffId}
+                    tempPassword={createdStaff.tempPassword}
+                />
+            )}
         </>
     );
 }

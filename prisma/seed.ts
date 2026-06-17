@@ -13,6 +13,7 @@ async function main() {
   });
 
   const passwordHash = await bcrypt.hash("Admin1234", 10);
+  const pinHash = await bcrypt.hash("123456", 10); // Default test pin: 123456
 
   // Full permissions for admin
   const adminPermissions = {
@@ -29,6 +30,9 @@ async function main() {
     data: {
       email,
       password: passwordHash,
+      pin: pinHash,
+      twoFactorEnabled: true,
+      staffId: "EMP-00001",
       firstname: "Mia",
       lastname: "Bles",
       sex: "Female",
@@ -45,7 +49,8 @@ async function main() {
 
   console.log("✅ Seeded Admin User:");
   console.log(`   Email: ${mia.email}`);
-  console.log(`   Password: Admin1234 (hashed)`);
+  console.log(`   Password: Admin1234`);
+  console.log(`   PIN: 123456`);
 }
 
 main()

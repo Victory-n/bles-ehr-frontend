@@ -1,17 +1,31 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import StaffFormModal from "@/components/staff/StaffFormModal";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Mock Staff Data
-══════════════════════════════════════════════════════════════════════════ */
+   Staff Data Types
+═══════════════════════════════════════════════════════════════════════════ */
 
 type StaffCategory = "Clinical" | "Admin";
 
+interface RawStaffMember {
+    id: string;
+    staffId: string;
+    firstname: string;
+    lastname: string;
+    email: string;
+    role: number;
+    status: string;
+    extendedInfo: any;
+    createdAt: string;
+}
+
 interface StaffMember {
     id: string;
+    staffId: string;
     name: string;
     role: string;
     dept: string;
@@ -22,31 +36,87 @@ interface StaffMember {
     avatarBg: string;
 }
 
-const STAFF: StaffMember[] = [
-    { id: "EMP-4821", name: "Dr. Eleanor Vance", role: "Lead Psychiatrist", dept: "Psychiatry", category: "Clinical", roleColor: "#e65100", online: true, initials: "EV", avatarBg: "#0f4c81" },
-    { id: "EMP-3196", name: "Marcus Thorne", role: "Clinical Nurse", dept: "Pediatrics", category: "Clinical", roleColor: "#e65100", online: true, initials: "MT", avatarBg: "#006970" },
-    { id: "EMP-1862", name: "Sarah Jenkins", role: "Systems Admin", dept: "IT", category: "Admin", roleColor: "#0f4c81", online: true, initials: "SJ", avatarBg: "#7a3700" },
-    { id: "EMP-5512", name: "David Chen", role: "Therapist", dept: "Counseling", category: "Clinical", roleColor: "#e65100", online: false, initials: "DC", avatarBg: "#0f4c81" },
-    { id: "EMP-2888", name: "Aisha Patel", role: "Head of Nursing", dept: "Nursing", category: "Clinical", roleColor: "#e65100", online: true, initials: "AP", avatarBg: "#006970" },
-    { id: "EMP-9081", name: "Robert Fischer", role: "Security Officer", dept: "Security", category: "Admin", roleColor: "#0f4c81", online: false, initials: "RF", avatarBg: "#7a3700" },
-    { id: "EMP-7234", name: "Dr. Amara Okafor", role: "Clinical Psychologist", dept: "Psychology", category: "Clinical", roleColor: "#e65100", online: true, initials: "AO", avatarBg: "#0f4c81" },
-    { id: "EMP-6045", name: "James Rodriguez", role: "Billing Specialist", dept: "Finance", category: "Admin", roleColor: "#0f4c81", online: false, initials: "JR", avatarBg: "#006970" },
-    { id: "EMP-8877", name: "Linda Osei", role: "Compliance Officer", dept: "Compliance", category: "Admin", roleColor: "#0f4c81", online: true, initials: "LO", avatarBg: "#7a3700" },
-];
-
-const COUNTS = { all: 142, clinical: 89, admin: 53 };
+const AVATAR_BG_COLORS = ["#0f4c81", "#006970", "#7a3700", "#4a148c", "#1b5e20", "#b71c1c"];
 
 /* ══════════════════════════════════════════════════════════════════════════
    Staff Page
-══════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════════════════════ */
 export default function StaffPage() {
     const router = useRouter();
+    const { user } = useAuth();
     const [search, setSearch] = useState("");
     const [activeFilter, setActiveFilter] = useState<"All" | StaffCategory>("All");
     const [sortBy, setSortBy] = useState("Name (A-Z)");
     const [showAddModal, setShowAddModal] = useState(false);
+    const [staff, setStaff] = useState<StaffMember[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const filtered = activeFilter === "All" ? STAFF : STAFF.filter((s) => s.category === activeFilter);
+    // Fetch staff data from API
+    const fetchStaff = async () => {
+        try {
+            const res = await fetch("/api/staff");
+            if (res.ok) {
+                const data = await res.json();
+                // Transform raw staff data into the format we need
+                const transformedStaff: StaffMember[] = data.staff.map((s: RawStaffMember, index: number) => {
+                    const position = s.extendedInfo?.position || "Staff Member";
+                    const category: StaffCategory = s.role === 1 || // Check if role is Admin (1)
+                        position.toLowerCase().includes("admin") ||
+                        position.toLowerCase().includes("security") ||
+                        position.toLowerCase().includes("billing") ||
+                        position.toLowerCase().includes("compliance")
+                        ? "Admin" : "Clinical";
+                    return {
+                        id: s.staffId,
+                        staffId: s.staffId,
+                        name: `${s.firstname} ${s.lastname}`,
+                        role: position,
+                        dept: s.extendedInfo?.department || "General",
+                        category,
+                        roleColor: category === "Clinical" ? "#e65100" : "#0f4c81",
+                        online: index % 3 !== 0,
+                        initials: `${s.firstname[0]}${s.lastname[0]}`.toUpperCase(),
+                        avatarBg: AVATAR_BG_COLORS[index % AVATAR_BG_COLORS.length],
+                    };
+                });
+                setStaff(transformedStaff);
+            }
+        } catch (error) {
+            console.error("Failed to fetch staff:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchStaff();
+    }, []);
+
+    // Filter and sort staff
+    let filtered = activeFilter === "All" ? staff : staff.filter((s) => s.category === activeFilter);
+    if (search) {
+        filtered = filtered.filter((s) =>
+            s.name.toLowerCase().includes(search.toLowerCase()) ||
+            s.staffId.toLowerCase().includes(search.toLowerCase())
+        );
+    }
+    // Sorting
+    if (sortBy === "Name (A-Z)") {
+        filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === "Name (Z-A)") {
+        filtered = [...filtered].sort((a, b) => b.name.localeCompare(a.name));
+    }
+
+    const COUNTS = {
+        all: staff.length,
+        clinical: staff.filter(s => s.category === "Clinical").length,
+        admin: staff.filter(s => s.category === "Admin").length,
+    };
+
+    const handleModalClose = () => {
+        setShowAddModal(false);
+        fetchStaff(); // Refresh the list after adding a new staff member
+    };
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -276,7 +346,14 @@ export default function StaffPage() {
             </div>
 
             {/* Add Staff Modal */}
-            {showAddModal && <StaffFormModal onClose={() => setShowAddModal(false)} />}
+            {showAddModal && <StaffFormModal onClose={handleModalClose} />}
+
+            {/* Loading state */}
+            {loading && (
+                <div style={{ textAlign: "center", padding: "40px" }}>
+                    Loading staff...
+                </div>
+            )}
         </div>
     );
 }
