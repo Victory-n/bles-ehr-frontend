@@ -175,7 +175,7 @@ function OverviewTab({ staff }: { staff: any }) {
 }
 
 function TasksTab() {
-  const tasks = [];
+  const tasks: Array<{ name: string; dueDate: string; priority: "High" | "Medium" | "Low" }> = [];
   return (
     <Card title="Assigned Tasks">
       {tasks.length === 0 ? (
@@ -222,7 +222,7 @@ function ProgramsTab() {
 }
 
 function QueriesTab() {
-  const items = [];
+  const items: Array<{ title: string; status: string; date: string; icon: string; color: string }> = [];
   return (
     <Card title="Recent Queries">
       {items.length === 0 ? (
