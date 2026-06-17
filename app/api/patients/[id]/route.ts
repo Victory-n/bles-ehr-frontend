@@ -68,6 +68,42 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const emergencyContact = { name: emergencyName, relationship: emergencyRelationship, phone: emergencyPhone };
     const intakeNotes = { diagnosis, notes };
 
+    const updatedFields: Record<string, { old: any; new: any }> = {};
+
+    if (existing.firstname !== firstName) updatedFields.firstname = { old: existing.firstname, new: firstName };
+    if (existing.lastname !== lastName) updatedFields.lastname = { old: existing.lastname, new: lastName };
+    if (existing.dateOfBirth.toISOString().split("T")[0] !== new Date(dateOfBirth).toISOString().split("T")[0]) {
+      updatedFields.dateOfBirth = { old: existing.dateOfBirth.toISOString().split("T")[0], new: dateOfBirth };
+    }
+    if (existing.gender !== gender) updatedFields.gender = { old: existing.gender, new: gender };
+
+    const oldContact = (existing.contactInformation as Record<string, string>) || {};
+    for (const key of ["phone", "email", "address", "city", "zip"]) {
+      const newVal = (contactInformation as any)[key] || "";
+      const oldVal = oldContact[key] || "";
+      if (oldVal !== newVal) {
+        updatedFields[`contactInformation.${key}`] = { old: oldVal, new: newVal };
+      }
+    }
+
+    const oldEmergency = (existing.emergencyContact as Record<string, string>) || {};
+    for (const key of ["name", "relationship", "phone"]) {
+      const newVal = (emergencyContact as any)[key] || "";
+      const oldVal = oldEmergency[key] || "";
+      if (oldVal !== newVal) {
+        updatedFields[`emergencyContact.${key}`] = { old: oldVal, new: newVal };
+      }
+    }
+
+    const oldIntake = (existing.intakeNotes as Record<string, string>) || {};
+    for (const key of ["diagnosis", "notes"]) {
+      const newVal = (intakeNotes as any)[key] || "";
+      const oldVal = oldIntake[key] || "";
+      if (oldVal !== newVal) {
+        updatedFields[`intakeNotes.${key}`] = { old: oldVal, new: newVal };
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const patient = await tx.patient.update({
         where: { id },
@@ -92,6 +128,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             message: `Patient ${firstName} ${lastName} (${existing.patientId}) was updated.`,
             patientId: existing.patientId,
             name: `${firstName} ${lastName}`,
+            updatedFields,
           },
         },
       });
