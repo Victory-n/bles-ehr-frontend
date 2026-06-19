@@ -17,7 +17,7 @@ export async function loginUser(email: string, password: string, requiredRole?: 
     return { success: false, status: 401, message: "Invalid credentials" };
   }
 
-  // Check if user has required role (if specified)
+  // Check if user has required role (if specified) 
   if (requiredRole !== undefined && user.role !== requiredRole) {
     return { success: false, status: 403, message: "Unauthorized access" };
   }
