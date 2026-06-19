@@ -1,8 +1,12 @@
+import { User } from "@prisma/client";
 import { getAuthCookie } from "./cookies";
 import { verifyToken } from "./jwt";
 import { prisma } from "../prisma";
 
-export async function getCurrentUser() {
+// Type for user object returned by getCurrentUser (excludes password and pin, adds hasPin)
+export type CurrentUser = Omit<User, "password" | "pin"> & { hasPin: boolean };
+
+export async function getCurrentUser(): Promise<CurrentUser | null> {
   try {
     const token = await getAuthCookie();
     if (!token) return null;

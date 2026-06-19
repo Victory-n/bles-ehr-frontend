@@ -1,4 +1,4 @@
-import { User } from '@prisma/client';
+import { CurrentUser } from './guards';
 
 // Permission level constants
 export const PERMISSION_LEVELS = {
@@ -16,7 +16,7 @@ export type PermissionKey = 'p' | 'pr' | 'cn' | 's' | 'b' | 'c' | 'al';
  * Check if a user has a specific permission level or higher
  */
 export function hasPermission(
-  user: User,
+  user: CurrentUser,
   permissionKey: PermissionKey,
   requiredLevel: number
 ): boolean {
@@ -35,13 +35,13 @@ export function hasPermission(
 /**
  * Check if a user can sign clinic notes
  */
-export function canSignClinicNotes(user: User): boolean {
+export function canSignClinicNotes(user: CurrentUser): boolean {
   return hasPermission(user, 'cn', PERMISSION_LEVELS.WRITE);
 }
 
 /**
  * Check if a user can sign compliance forms
  */
-export function canSignComplianceForms(user: User): boolean {
+export function canSignComplianceForms(user: CurrentUser): boolean {
   return hasPermission(user, 'c', PERMISSION_LEVELS.WRITE);
 }
