@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     const { email, password } = await req.json();
 
     // 1 for admin
-    const result = await loginUser(email, password);
+    const result = await loginUser(email, password, 1);
 
     if (!result.success) {
       return NextResponse.json({ message: result.message }, { status: result.status });

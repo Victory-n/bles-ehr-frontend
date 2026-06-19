@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { generateToken } from "../auth/jwt";
 import { setAuthCookie } from "../auth/cookies";
 
-export async function loginUser(email: string, password: string) {
+export async function loginUser(email: string, password: string, requiredRole?: number) {
   if (!email || !password) {
     return { success: false, status: 400, message: "Email and password are required" };
   }
@@ -15,6 +15,11 @@ export async function loginUser(email: string, password: string) {
 
   if (!user) {
     return { success: false, status: 401, message: "Invalid credentials" };
+  }
+
+  // Check if user has required role (if specified)
+  if (requiredRole !== undefined && user.role !== requiredRole) {
+    return { success: false, status: 403, message: "Unauthorized access" };
   }
 
   // Verify password
