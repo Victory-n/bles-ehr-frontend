@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
+import { folderService } from "@/lib/services/folderService";
+import { storageService } from "@/lib/storage";
 import * as XLSX from "xlsx";
 
 export async function POST(req: Request) {
@@ -169,6 +171,14 @@ export async function POST(req: Request) {
 
           return patient;
         });
+
+        // Create folders in database (and Supabase if configured)
+        await Promise.all([
+          storageService.createPatientFolders(result.patientId).catch(err => {
+            console.warn("Failed to create storage folders:", err);
+          }),
+          folderService.createPatientFolders(result.id, user.id),
+        ]);
 
         successes.push({
           name: `${result.firstname} ${result.lastname}`,

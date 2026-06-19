@@ -6,26 +6,65 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum FolderType {
+  PARENT
+  CHILD
+}
+
+enum DocumentType {
+  GENERAL
+  BILLING
+  COMPLIANCE
+  CLINIC_NOTES
+}
+
+enum FileType {
+  PDF
+  DOC
+  DOCX
+  XLS
+  XLSX
+  PNG
+  JPG
+  JPEG
+  TXT
+  OTHER
+}
+
+enum SignatureStatus {
+  UNSIGNED
+  PENDING
+  SIGNED
+}
+
+enum SignerType {
+  PATIENT
+  STAFF
+}
+
 model User {
-  id                String     @id @default(uuid())
-  staffId           String     @unique
-  firstname         String
-  lastname          String
-  sex               String
-  dateofbirth       DateTime
-  email             String     @unique
-  password          String     @default("") // Hashed password
-  pin               String?    // Hashed PIN for 2FA
-  twoFactorEnabled  Boolean    @default(false)
-  role              Int        @default(0) // 0 for staff, 1 for admin
-  status            String     @default("Active") // Active, Inactive, Suspended
-  extendedInfo      Json       @default("{}") // Extra information structure
-  permissions       Json       @default("{}") // RBAC permissions structure
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  patients          Patient[]
-  auditLogs         AuditLog[]
-  uploadedDocuments Document[]
+  id                     String     @id @default(uuid())
+  staffId                String     @unique
+  firstname              String
+  lastname               String
+  sex                    String
+  dateofbirth            DateTime
+  email                  String     @unique
+  password               String     @default("") // Hashed password
+  pin                    String?    // Hashed PIN for 2FA
+  twoFactorEnabled       Boolean    @default(false)
+  role                   Int        @default(0) // 0 for staff, 1 for admin
+  status                 String     @default("Active") // Active, Inactive, Suspended
+  extendedInfo           Json       @default("{}") // Extra information structure
+  permissions            Json       @default("{}") // RBAC permissions structure
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  patients               Patient[]
+  auditLogs              AuditLog[]
+  uploadedDocuments      Document[]
+  // Signature relations
+  signedDocuments        Document[] @relation("SignedDocuments")
+  requestedSignatures    Document[] @relation("RequestedSignatures")
 }
 
 model Patient {
@@ -47,6 +86,7 @@ model Patient {
   updatedAt          DateTime         @updatedAt
   patientPrograms    PatientProgram[]
   documents          Document[]
+  folders            Folder[]
 }
 
 model Program {
@@ -80,23 +120,64 @@ model PatientProgram {
   @@unique([patientId, programId])
 }
 
-model Document {
-  id           String    @id @default(uuid())
-  documentId   String    @unique
+model Folder {
+  id           String        @id @default(uuid())
+  folderId     String        @unique
   name         String
-  type         String // PDF, DOC, etc.
-  filePath     String
+  type         FolderType
   patientId    String
-  fileSize     Int?      // in bytes
-  mimeType     String?   // e.g. "application/pdf"
-  storagePath  String    // Supabase storage path (private)
-  patient      Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  uploadedById String
-  uploadedBy   User      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  parentId     String?
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  parent       Folder?       @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Folder[]      @relation("FolderHierarchy")
+  documents    Document[]
+  sortOrder    Int           @default(0)
   deletedAt    DateTime?
   deletedBy    String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([patientId])
+  @@index([parentId])
+}
+
+model Document {
+  id                    String        @id @default(uuid())
+  documentId            String        @unique
+  name                  String
+  fileType              FileType
+  documentType          DocumentType
+  patientId             String
+  folderId              String?
+  fileSize              Int?          // in bytes
+  mimeType              String?       // e.g. "application/pdf"
+  storagePath           String        // Supabase storage path (private)
+  patient               Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  folder                Folder?       @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  uploadedById          String
+  uploadedBy            User          @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  // Signature fields
+  signatureStatus       SignatureStatus @default(UNSIGNED)
+  signedAt              DateTime?
+  signedById            String?
+  signedBy              User?         @relation("SignedDocuments", fields: [signedById], references: [id], onDelete: SetNull)
+  signedByType          SignerType?
+  requestedSignatureById String?
+  requestedSignatureBy  User?         @relation("RequestedSignatures", fields: [requestedSignatureById], references: [id], onDelete: SetNull)
+  requestedSignatureAt  DateTime?
+  signatureNote         String?
+  deletedAt             DateTime?
+  deletedBy             String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@index([patientId])
+  @@index([folderId])
+  @@index([documentType])
+  @@index([uploadedById])
+  @@index([signatureStatus])
+  @@index([signedById])
+  @@index([requestedSignatureById])
 }
 
 model AuditLog {

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
+import { folderService } from "@/lib/services/folderService";
+import { storageService } from "@/lib/storage";
 
 export async function POST(req: Request) {
   try {
@@ -74,6 +76,14 @@ export async function POST(req: Request) {
 
       return patient;
     });
+
+    // Create folders in database (and Supabase if configured)
+    await Promise.all([
+      storageService.createPatientFolders(result.patientId).catch(err => {
+        console.warn("Failed to create storage folders:", err);
+      }),
+      folderService.createPatientFolders(result.id, user.id),
+    ]);
 
     return NextResponse.json({ patient: result, message: "Patient created successfully" }, { status: 201 });
   } catch (error) {

@@ -17,13 +17,13 @@ async function main() {
 
   // Full permissions for admin
   const adminPermissions = {
-    p: [1, 2, 3, 4, 5],    // Patient: Create, Read, Update, Write, Delete
-    pr: [1, 2, 3, 4, 5],   // Programs
-    cn: [1, 2, 3, 4, 5],   // Clinic Notes
-    s: [1, 2, 3, 4, 5],    // Staff
-    b: [1, 2, 3, 4, 5],    // Billing
-    c: [1, 2, 3, 4, 5],    // Compliance
-    al: [1, 2, 3, 4, 5]    // Audit Log
+    p: [1, 2, 3, 4, 5],    // Patient: Create(1), Read(2), Update(3), Write(4), Delete(5)
+    pr: [1, 2, 3, 4, 5],   // Programs: Create(1), Read(2), Update(3), Write(4), Delete(5)
+    cn: [1, 2, 3, 4, 5],   // Clinic Notes: Create(1), Read(2), Update(3), Write(4), Delete(5)
+    s: [1, 2, 3, 4, 5],    // Staff: Create(1), Read(2), Update(3), Write(4), Delete(5)
+    b: [1, 2, 3, 4, 5],    // Billing: Create(1), Read(2), Update(3), Write(4), Delete(5)
+    c: [1, 2, 3, 4, 5],    // Compliance: Create(1), Read(2), Update(3), Write(4), Delete(5)
+    al: [1, 2, 3, 4, 5]    // Audit Log: Create(1), Read(2), Update(3), Write(4), Delete(5)
   };
 
   const mia = await prisma.user.create({

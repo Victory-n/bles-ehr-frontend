@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Mock Clinic Notes Data
+   Clinic Notes Data Types
 ══════════════════════════════════════════════════════════════════════════ */
 
 interface ClinicNote {
@@ -14,66 +13,53 @@ interface ClinicNote {
     folderId: string;
 }
 
-const CLINIC_NOTES: ClinicNote[] = [
-    { patientId: "RC-84920", patientName: "Abernathy, Sarah", folderId: "FLD-1001" },
-    { patientId: "RC-84921", patientName: "Chen, Wei", folderId: "FLD-1002" },
-    { patientId: "RC-84922", patientName: "Doe, Jonathan", folderId: "FLD-1003" },
-    { patientId: "RC-84923", patientName: "Garcia, Maria", folderId: "FLD-1004" },
-    { patientId: "RC-84924", patientName: "Johnson, Marcus", folderId: "FLD-1005" },
-    { patientId: "RC-84925", patientName: "Kim, Sun-Hee", folderId: "FLD-1006" },
-    { patientId: "RC-84926", patientName: "Martinez, Luis", folderId: "FLD-1007" },
-    { patientId: "RC-84927", patientName: "Patel, Ananya", folderId: "FLD-1008" },
-    { patientId: "RC-84928", patientName: "Roberts, Emily", folderId: "FLD-1009" },
-    { patientId: "RC-84929", patientName: "Thompson, David", folderId: "FLD-1010" },
-];
-
-const TOTAL = 1248;
-const RECENT = 342;
-const PENDING = 56;
-
 /* ══════════════════════════════════════════════════════════════════════════
    Clinic Notes Page
 ══════════════════════════════════════════════════════════════════════════ */
 export default function ClinicNotesPage() {
     const router = useRouter();
+    const [clinicNotes, setClinicNotes] = useState<ClinicNote[]>([]);
+    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("All");
     const [currentPage, setCurrentPage] = useState(1);
-    const totalPages = Math.ceil(TOTAL / 10);
-    const [pinSet, setPinSet] = useState(false);
-    const [showSetPinModal, setShowSetPinModal] = useState(false);
-    const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
-    const [pendingFolderId, setPendingFolderId] = useState<string | null>(null);
 
-    const [isOpeningNewNote, setIsOpeningNewNote] = useState(false);
+    // Fetch clinic notes from API
+    useEffect(() => {
+        async function fetchClinicNotes() {
+            try {
+                const response = await fetch("/api/clinic-notes");
+                if (response.ok) {
+                    const data = await response.json();
+                    setClinicNotes(data.clinicNotes);
+                }
+            } catch (error) {
+                console.error("Failed to fetch clinic notes:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchClinicNotes();
+    }, []);
+
+    // Filter notes based on search
+    const filteredNotes = clinicNotes.filter(note => 
+        note.patientName.toLowerCase().includes(search.toLowerCase()) ||
+        note.patientId.toLowerCase().includes(search.toLowerCase()) ||
+        note.folderId.toLowerCase().includes(search.toLowerCase())
+    );
+
+    const totalPages = Math.ceil(filteredNotes.length / 10);
+    const paginatedNotes = filteredNotes.slice((currentPage - 1) * 10, currentPage * 10);
 
     const handleOpenFolder = (folderId: string) => {
-        setPendingFolderId(folderId);
-        setIsOpeningNewNote(false);
-        if (!pinSet) {
-            setShowSetPinModal(true);
-        } else {
-            setShowVerifyPinModal(true);
-        }
+        router.push(`/clinic-notes/${folderId}`);
     };
 
     const handleNewClinicNote = () => {
-        setIsOpeningNewNote(true);
-        setPendingFolderId(null);
-        if (!pinSet) {
-            setShowSetPinModal(true);
-        } else {
-            setShowVerifyPinModal(true);
-        }
-    };
-
-    const completeAction = () => {
-        if (isOpeningNewNote) {
-            // For now, just go to main clinic notes or maybe a new path, but let's just do nothing for UI
-            // Or you could pick a random folder for new note, but let's just close modal for demo
-        } else if (pendingFolderId) {
-            router.push(`/clinic-notes/${pendingFolderId}`);
-        }
+        // TODO: Implement new clinic note functionality
+        console.log("New clinic note clicked");
     };
 
     return (
@@ -81,9 +67,9 @@ export default function ClinicNotesPage() {
 
             {/* ── Stat cards ─────────────────────────────────────────────────── */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-                <StatCard label="TOTAL CLINIC NOTES" value={TOTAL.toLocaleString()} icon="folder" iconBg="var(--color-primary-container)" iconColor="#ffffff" />
-                <StatCard label="RECENT NOTES" value={RECENT.toLocaleString()} icon="schedule" iconBg="var(--color-secondary)" iconColor="#ffffff" />
-                <StatCard label="PENDING REVIEW" value={PENDING.toLocaleString()} icon="pending_actions" iconBg="var(--color-tertiary-container)" iconColor="var(--color-on-tertiary-container)" />
+                <StatCard label="TOTAL CLINIC NOTES" value={clinicNotes.length.toLocaleString()} icon="folder" iconBg="var(--color-primary-container)" iconColor="#ffffff" />
+                <StatCard label="RECENT NOTES" value={Math.min(clinicNotes.length, 10).toLocaleString()} icon="schedule" iconBg="var(--color-secondary)" iconColor="#ffffff" />
+                <StatCard label="PENDING REVIEW" value="0" icon="pending_actions" iconBg="var(--color-tertiary-container)" iconColor="var(--color-on-tertiary-container)" />
             </div>
 
             {/* ── Header row ─────────────────────────────────────────────────── */}
@@ -193,75 +179,87 @@ export default function ClinicNotesPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {CLINIC_NOTES.map((note, i) => (
-                            <tr
-                                key={note.folderId}
-                                style={{
-                                    borderBottom: i < CLINIC_NOTES.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
-                                    transition: "background 0.12s",
-                                    cursor: "pointer",
-                                }}
-                                onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-surface-container-low)")}
-                                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
-                            >
-                                {/* S/N */}
-                                <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: "var(--color-primary-container)", width: "60px" }}>
-                                    {i + 1}
-                                </td>
-                                
-                                {/* PATIENT NAME (ID underneath) */}
-                                <td style={{ padding: "14px 20px" }}>
-                                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 4 }}>
-                                        {note.patientName}
-                                    </div>
-                                    <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--color-on-surface-variant)" }}>
-                                        {note.patientId}
-                                    </div>
-                                </td>
-                                
-                                {/* FOLDER ID */}
-                                <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 500, color: "var(--color-on-surface)", fontFamily: "var(--font-mono)" }}>
-                                    {note.folderId}
-                                </td>
-                                
-                                {/* ACTION */}
-                                <td style={{ padding: "14px 20px", textAlign: "right" }}>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenFolder(note.folderId);
-                                        }}
-                                        style={{
-                                            display: "inline-flex",
-                                            alignItems: "center",
-                                            gap: 6,
-                                            padding: "8px 16px",
-                                            borderRadius: 8,
-                                            border: "1px solid var(--color-outline-variant)",
-                                            background: "var(--color-surface-container-lowest)",
-                                            color: "var(--color-primary-container)",
-                                            fontSize: 13,
-                                            fontWeight: 600,
-                                            cursor: "pointer",
-                                            transition: "all 0.15s ease",
-                                        }}
-                                        onMouseOver={(e) => {
-                                            e.currentTarget.style.background = "var(--color-primary-container)";
-                                            e.currentTarget.style.color = "#ffffff";
-                                            e.currentTarget.style.borderColor = "var(--color-primary-container)";
-                                        }}
-                                        onMouseOut={(e) => {
-                                            e.currentTarget.style.background = "var(--color-surface-container-lowest)";
-                                            e.currentTarget.style.color = "var(--color-primary-container)";
-                                            e.currentTarget.style.borderColor = "var(--color-outline-variant)";
-                                        }}
-                                    >
-                                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>folder_open</span>
-                                        Open Folder
-                                    </button>
+                        {loading ? (
+                            <tr>
+                                <td colSpan={4} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)" }}>
+                                    Loading...
                                 </td>
                             </tr>
-                        ))}
+                        ) : paginatedNotes.length === 0 ? (
+                            <tr>
+                                <td colSpan={4} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)" }}>
+                                    No clinic notes found
+                                </td>
+                            </tr>
+                        ) : (
+                            paginatedNotes.map((note, i) => (
+                                <tr
+                                    key={note.folderId}
+                                    style={{
+                                        borderBottom: i < paginatedNotes.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                                        transition: "background 0.12s",
+                                        cursor: "pointer",
+                                    }}
+                                    onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-surface-container-low)")}
+                                    onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                                    onClick={() => handleOpenFolder(note.folderId)}
+                                >
+                                    {/* S/N */}
+                                    <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: "var(--color-primary-container)", width: "60px" }}>
+                                        {(currentPage - 1) * 10 + i + 1}
+                                    </td>
+                                    
+                                    {/* PATIENT NAME (ID underneath) */}
+                                    <td style={{ padding: "14px 20px" }}>
+                                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 4 }}>
+                                            {note.patientName}
+                                        </div>
+                                        <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--color-on-surface-variant)" }}>
+                                            {note.patientId}
+                                        </div>
+                                    </td>
+                                    
+                                    {/* FOLDER ID */}
+                                    <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 500, color: "var(--color-on-surface)", fontFamily: "var(--font-mono)" }}>
+                                        {note.folderId}
+                                    </td>
+                                    
+                                    {/* ACTION */}
+                                    <td style={{ padding: "14px 20px", textAlign: "right" }}>
+                                        <button
+                                            onClick={() => handleOpenFolder(note.folderId)}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 6,
+                                                padding: "8px 16px",
+                                                borderRadius: 8,
+                                                border: "1px solid var(--color-outline-variant)",
+                                                background: "var(--color-surface-container-lowest)",
+                                                color: "var(--color-primary-container)",
+                                                fontSize: 13,
+                                                fontWeight: 600,
+                                                cursor: "pointer",
+                                                transition: "all 0.15s ease",
+                                            }}
+                                            onMouseOver={(e) => {
+                                                e.currentTarget.style.background = "var(--color-primary-container)";
+                                                e.currentTarget.style.color = "#ffffff";
+                                                e.currentTarget.style.borderColor = "var(--color-primary-container)";
+                                            }}
+                                            onMouseOut={(e) => {
+                                                e.currentTarget.style.background = "var(--color-surface-container-lowest)";
+                                                e.currentTarget.style.color = "var(--color-primary-container)";
+                                                e.currentTarget.style.borderColor = "var(--color-outline-variant)";
+                                            }}
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>folder_open</span>
+                                            Open Folder
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
 
@@ -275,62 +273,82 @@ export default function ClinicNotesPage() {
                     background: "var(--color-surface-container-low)",
                 }}>
                     <span style={{ fontSize: 13, color: "var(--color-on-surface-variant)" }}>
-                        Showing 1 to 10 of {TOTAL.toLocaleString()} entries
+                        Showing {paginatedNotes.length > 0 ? (currentPage - 1) * 10 + 1 : 0} to {Math.min(currentPage * 10, filteredNotes.length)} of {filteredNotes.length.toLocaleString()} entries
                     </span>
                     <div style={{ display: "flex", gap: 4 }}>
-                        {[1, 2, 3].map((n) => (
-                            <button
-                                key={n}
-                                onClick={() => setCurrentPage(n)}
-                                style={{
-                                    width: 32,
-                                    height: 32,
-                                    borderRadius: 6,
-                                    border: currentPage === n ? "none" : "1px solid var(--color-outline-variant)",
-                                    background: currentPage === n ? "var(--color-primary-container)" : "var(--color-surface-container-lowest)",
-                                    color: currentPage === n ? "#ffffff" : "var(--color-on-surface)",
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    transition: "background 0.12s",
-                                }}
-                            >
-                                {n}
-                            </button>
-                        ))}
-                        <span style={{ padding: "0 6px", fontSize: 13, color: "var(--color-outline)", alignSelf: "center" }}>…</span>
+                        {/* Previous button */}
                         <button
-                            onClick={() => setCurrentPage(totalPages)}
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
                             style={{
                                 width: 32,
                                 height: 32,
                                 borderRadius: 6,
                                 border: "1px solid var(--color-outline-variant)",
                                 background: "var(--color-surface-container-lowest)",
-                                color: "var(--color-on-surface)",
+                                color: currentPage === 1 ? "var(--color-outline)" : "var(--color-on-surface)",
                                 fontSize: 13,
                                 fontWeight: 600,
-                                cursor: "pointer",
+                                cursor: currentPage === 1 ? "not-allowed" : "pointer",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
                             }}
                         >
-                            {totalPages}
+                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>chevron_left</span>
                         </button>
+
+                        {/* Page numbers */}
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum = i + 1;
+                            if (totalPages > 5) {
+                                if (currentPage <= 3) {
+                                    pageNum = i + 1;
+                                } else if (currentPage >= totalPages - 2) {
+                                    pageNum = totalPages - 4 + i;
+                                } else {
+                                    pageNum = currentPage - 2 + i;
+                                }
+                            }
+                            return (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => setCurrentPage(pageNum)}
+                                    style={{
+                                        width: 32,
+                                        height: 32,
+                                        borderRadius: 6,
+                                        border: currentPage === pageNum ? "none" : "1px solid var(--color-outline-variant)",
+                                        background: currentPage === pageNum ? "var(--color-primary-container)" : "var(--color-surface-container-lowest)",
+                                        color: currentPage === pageNum ? "#ffffff" : "var(--color-on-surface)",
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        transition: "background 0.12s",
+                                    }}
+                                >
+                                    {pageNum}
+                                </button>
+                            );
+                        })}
+
+                        {/* Next button */}
                         <button
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages || totalPages === 0}
                             style={{
                                 width: 32,
                                 height: 32,
                                 borderRadius: 6,
                                 border: "1px solid var(--color-outline-variant)",
                                 background: "var(--color-surface-container-lowest)",
-                                color: "var(--color-on-surface-variant)",
+                                color: currentPage === totalPages || totalPages === 0 ? "var(--color-outline)" : "var(--color-on-surface)",
                                 fontSize: 13,
-                                cursor: "pointer",
+                                fontWeight: 600,
+                                cursor: currentPage === totalPages || totalPages === 0 ? "not-allowed" : "pointer",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -342,24 +360,7 @@ export default function ClinicNotesPage() {
                 </div>
             </div>
 
-            {/* PIN Modals */}
-            {showSetPinModal && (
-                <SetPinModal
-                    onClose={() => {
-                        setShowSetPinModal(false);
-                        setPinSet(true);
-                        completeAction();
-                    }}
-                />
-            )}
-            {showVerifyPinModal && (
-                <VerifyPinModal
-                    onClose={() => {
-                        setShowVerifyPinModal(false);
-                        completeAction();
-                    }}
-                />
-            )}
+
         </div>
     );
 }
