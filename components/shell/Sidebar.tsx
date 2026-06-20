@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: "grid_view" },
   { label: "Patients", href: "/patients", icon: "person" },
   { label: "Staff", href: "/staff", icon: "group" },
-  { label: "Clinic Notes", href: "/clinic-notes", icon: "description" },
+  { label: "Folders", href: "/clinic-notes", icon: "folder_open" },
   { label: "Programs", href: "/programs", icon: "layers" },
   { label: "Billing", href: "/billing", icon: "payments" },
   { label: "Compliance", href: "/compliance", icon: "verified_user" },

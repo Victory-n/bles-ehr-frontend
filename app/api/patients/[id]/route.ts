@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
+import { folderService } from "@/lib/services/folderService";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -22,7 +23,55 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ message: "Patient not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ patient }, { status: 200 });
+    // Fetch folders for this patient (including documents and uploader info)
+    let folders = await prisma.folder.findMany({
+      where: { patientId: patient.id, deletedAt: null },
+      include: {
+        documents: {
+          where: { deletedAt: null },
+          include: {
+            uploadedBy: {
+              select: {
+                firstname: true,
+                lastname: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    // Auto-create folders if they do not exist (e.g. for pre-existing patients)
+    if (folders.length === 0) {
+      await folderService.createPatientFolders(patient.id, user.id);
+      folders = await prisma.folder.findMany({
+        where: { patientId: patient.id, deletedAt: null },
+        include: {
+          documents: {
+            where: { deletedAt: null },
+            include: {
+              uploadedBy: {
+                select: {
+                  firstname: true,
+                  lastname: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          },
+        },
+        orderBy: { sortOrder: "asc" },
+      });
+    }
+
+    return NextResponse.json({
+      patient: {
+        ...patient,
+        folders,
+      },
+    }, { status: 200 });
   } catch (error) {
     console.error("GET /api/patients/[id] error:", error);
     return NextResponse.json({ message: "An internal server error occurred" }, { status: 500 });

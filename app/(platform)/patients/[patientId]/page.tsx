@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import PatientFormModal from "@/components/patients/PatientFormModal";
 
@@ -24,6 +24,35 @@ interface IntakeNotes {
   notes?: string;
 }
 
+interface DocumentRecord {
+  id: string;
+  documentId: string;
+  name: string;
+  fileType: string;
+  documentType: string;
+  fileSize: number | null;
+  mimeType: string | null;
+  storagePath: string;
+  uploadedBy?: {
+    firstname: string;
+    lastname: string;
+  };
+  createdAt: string;
+}
+
+interface FolderRecord {
+  id: string;
+  folderId: string;
+  name: string;
+  type: "PARENT" | "CHILD";
+  patientId: string;
+  parentId: string | null;
+  documents: DocumentRecord[];
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface PatientRecord {
   id: string;
   patientId: string;
@@ -38,6 +67,7 @@ interface PatientRecord {
   intakeNotes: IntakeNotes;
   createdAt: string;
   updatedAt: string;
+  folders?: FolderRecord[];
 }
 
 const TABS = ["Overview", "Folder", "Programs", "Compliance", "Audit Log"] as const;
@@ -212,7 +242,12 @@ export default function PatientDetailPage() {
           emergency={emergencyDisplay}
         />
       )}
-      {activeTab === "Folder" && <FolderTab hasFolder={false} docs={[]} />}
+      {activeTab === "Folder" && (
+        <FolderTab
+          folders={patient?.folders ?? []}
+          onRefresh={fetchPatient}
+        />
+      )}
       {activeTab === "Programs" && <ProgramsTab />}
       {activeTab === "Compliance" && <ComplianceTab items={[]} />}
       {activeTab === "Audit Log" && <AuditLogTab patientId={patientId} />}
@@ -280,15 +315,133 @@ function OverviewTab({
   );
 }
 
-interface FolderDoc {
-  name: string;
-  date: string;
-  type: string;
+interface FolderTabProps {
+  folders: FolderRecord[];
+  onRefresh: () => void;
 }
 
-function FolderTab({ hasFolder, docs }: { hasFolder: boolean; docs: FolderDoc[] }) {
-  /* ── State 1: No folder exists — prompt to create one ──────────────── */
-  if (!hasFolder) {
+function FolderTab({ folders, onRefresh }: FolderTabProps) {
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to map folder name to documentType
+  const getDocTypeFromFolderName = (folderName: string): string => {
+    const name = folderName.toLowerCase();
+    if (name.includes("clinic")) return "CLINIC_NOTES";
+    if (name.includes("compliance")) return "COMPLIANCE";
+    if (name.includes("billing")) return "BILLING";
+    return "GENERAL";
+  };
+
+  // Pool all documents from all folders of the patient
+  const allDocuments = folders.flatMap((f) => f.documents || []);
+
+  // Filter child folders
+  const childFolders = folders.filter((f) => f.type === "CHILD");
+
+  // Select the first folder by default if none selected
+  useEffect(() => {
+    if (childFolders.length > 0 && !activeFolderId) {
+      setActiveFolderId(childFolders[0].id);
+    }
+  }, [childFolders, activeFolderId]);
+
+  const activeFolder = childFolders.find((f) => f.id === activeFolderId);
+
+  const handleUpload = async (file: File) => {
+    if (!activeFolder) return;
+    try {
+      setUploading(true);
+      setError("");
+      
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("documentName", file.name);
+      formData.append("documentType", getDocTypeFromFolderName(activeFolder.name));
+
+      const res = await fetch(`/api/folders/${activeFolder.folderId}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        onRefresh();
+      } else {
+        const data = await res.json();
+        setError(data.message || "Failed to upload file.");
+      }
+    } catch {
+      setError("A network error occurred while uploading.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleUpload(e.target.files[0]);
+    }
+  };
+
+  const handleUploadAreaClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  function formatBytes(bytes: number | null): string {
+    if (bytes === null || bytes === undefined) return "—";
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  }
+
+  function formatDate(dateStr: string): string {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  const getDocIcon = (mime: string | null, name: string) => {
+    const ext = name.split(".").pop()?.toLowerCase();
+    const type = mime || "";
+    
+    if (type.includes("pdf") || ext === "pdf") {
+      return { icon: "picture_as_pdf", color: "#b3261e" };
+    }
+    if (type.includes("word") || ext === "doc" || ext === "docx") {
+      return { icon: "description", color: "#1a73e8" };
+    }
+    if (type.includes("excel") || ext === "xls" || ext === "xlsx") {
+      return { icon: "table_chart", color: "#137333" };
+    }
+    if (type.includes("image") || ["png", "jpg", "jpeg"].includes(ext || "")) {
+      return { icon: "image", color: "#e65100" };
+    }
+    return { icon: "insert_drive_file", color: "#5f6368" };
+  };
+
+  // If no folders are available
+  if (folders.length === 0) {
     return (
       <div style={{
         background: "var(--color-surface-container-lowest)",
@@ -301,79 +454,206 @@ function FolderTab({ hasFolder, docs }: { hasFolder: boolean; docs: FolderDoc[] 
         gap: 16,
         textAlign: "center",
       }}>
-        <div style={{
-          width: 72, height: 72, borderRadius: 16,
-          background: "var(--color-surface-container)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 36, color: "var(--color-outline)" }}>folder_off</span>
-        </div>
-        <div>
-          <h3 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 6px", color: "var(--color-on-surface)" }}>No Patient Folder</h3>
-          <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0, maxWidth: 400, lineHeight: 1.6 }}>
-            This patient does not have a document folder yet. Create a folder to start uploading and organizing clinical documents, forms, and records.
-          </p>
-        </div>
-        <button
-          style={{
-            display: "flex", alignItems: "center", gap: 6, marginTop: 8,
-            padding: "10px 22px", borderRadius: 8, border: "none",
-            background: "var(--color-primary-container)", color: "#ffffff",
-            fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background 0.15s",
-          }}
-          onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-primary)")}
-          onMouseOut={(e) => (e.currentTarget.style.background = "var(--color-primary-container)")}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>create_new_folder</span>
-          Create Folder
-        </button>
+        <span className="material-symbols-outlined" style={{ fontSize: 36, color: "var(--color-outline)", animation: "spin 1s linear infinite" }}>progress_activity</span>
+        <span style={{ fontSize: 15, fontWeight: 500, color: "var(--color-on-surface-variant)" }}>Initializing folders…</span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  /* ── State 2 & 3: Folder exists — show table (empty or with data) ─── */
   return (
-    <Card title="Patient Documents">
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
-            {["DOCUMENT", "DATE", "TYPE", ""].map((h, i) => (
-              <th key={h + i} style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--color-on-surface-variant)", textAlign: "left" }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {docs.length === 0 ? (
-            /* ── Empty folder state ─────────────────────────────────────── */
-            <tr>
-              <td colSpan={4} style={{ padding: "48px 12px", textAlign: "center" }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 32, color: "var(--color-outline)" }}>folder_open</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)" }}>Folder is empty</span>
-                  <span style={{ fontSize: 13, color: "var(--color-on-surface-variant)" }}>Upload documents to this patient's folder to see them here.</span>
-                </div>
-              </td>
-            </tr>
-          ) : (
-            /* ── Documents list ─────────────────────────────────────────── */
-            docs.map((d) => (
-              <tr key={d.name} style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
-                <td style={{ padding: "12px", fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: "var(--color-error)" }}>picture_as_pdf</span>{d.name}
-                  </div>
-                </td>
-                <td style={{ padding: "12px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>{d.date}</td>
-                <td style={{ padding: "12px", fontSize: 12, fontWeight: 600 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: "#fce8e8", color: "#b3261e" }}>{d.type}</span></td>
-                <td style={{ padding: "12px", textAlign: "right" }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: "var(--color-on-surface-variant)", cursor: "pointer" }}>download</span>
-                </td>
-              </tr>
-            ))
+    <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24, alignItems: "start" }}>
+      {/* Sidebar Folders */}
+      <div style={{
+        background: "var(--color-surface-container-lowest)",
+        border: "1px solid var(--color-outline-variant)",
+        borderRadius: 12,
+        padding: 16,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-on-surface-variant)", paddingLeft: 8, paddingBottom: 8, letterSpacing: "0.05em" }}>PATIENT FOLDERS</div>
+        
+        {childFolders.map((f) => {
+          const isActive = activeFolderId === f.id;
+          const folderDocType = getDocTypeFromFolderName(f.name);
+          const docCount = allDocuments.filter((d) => d.documentType === folderDocType).length;
+          
+          let icon = "folder";
+          let iconColor = "var(--color-primary-container)";
+          if (f.name.toLowerCase().includes("general")) { icon = "description"; iconColor = "var(--color-primary-container)"; }
+          else if (f.name.toLowerCase().includes("billing")) { icon = "receipt_long"; iconColor = "#1a73e8"; }
+          else if (f.name.toLowerCase().includes("compliance")) { icon = "verified_user"; iconColor = "#137333"; }
+          else if (f.name.toLowerCase().includes("clinic")) { icon = "edit_note"; iconColor = "#e65100"; }
+
+          return (
+            <button
+              key={f.id}
+              onClick={() => setActiveFolderId(f.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "none",
+                background: isActive ? "var(--color-surface-container)" : "transparent",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "background 0.12s",
+                width: "100%",
+              }}
+              onMouseOver={(e) => { if (!isActive) e.currentTarget.style.background = "var(--color-surface-container-low)"; }}
+              onMouseOut={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20, color: iconColor }}>{icon}</span>
+                <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: "var(--color-on-surface)" }}>{f.name}</span>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, background: "var(--color-surface-container-high)", color: "var(--color-on-surface-variant)", padding: "2px 8px", borderRadius: 10 }}>
+                {docCount}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected Folder Contents */}
+      {activeFolder ? (
+        <Card title={activeFolder.name}>
+          {error && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
+              background: "#fce8e8", border: "1px solid #f8b4b4", borderRadius: 8,
+              fontSize: 13, color: "#b3261e", marginBottom: 16,
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>error</span>
+              <span>{error}</span>
+            </div>
           )}
-        </tbody>
-      </table>
-    </Card>
+
+          {/* Upload Dropzone */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={handleUploadAreaClick}
+            style={{
+              border: dragActive ? "2px dashed var(--color-primary-container)" : "2px dashed var(--color-outline-variant)",
+              borderRadius: 8,
+              padding: "32px 16px",
+              textAlign: "center",
+              cursor: "pointer",
+              background: dragActive ? "var(--color-surface-container)" : "transparent",
+              transition: "all 0.12s ease",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 24,
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.borderColor = "var(--color-primary-container)"; }}
+            onMouseOut={(e) => { if (!dragActive) e.currentTarget.style.borderColor = "var(--color-outline-variant)"; }}
+          >
+            {uploading ? (
+              <>
+                <span className="material-symbols-outlined" style={{ fontSize: 32, color: "var(--color-primary-container)", animation: "spin 1s linear infinite" }}>progress_activity</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)" }}>Uploading document to storage…</span>
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined" style={{ fontSize: 32, color: "var(--color-outline)" }}>cloud_upload</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)" }}>Drag and drop files here, or click to browse</span>
+                  <span style={{ fontSize: 11, color: "var(--color-on-surface-variant)" }}>Supports PDF, Word, Excel, TXT, and Images up to 50MB</span>
+                </div>
+              </>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileSelect}
+              style={{ display: "none" }}
+            />
+          </div>
+
+          {/* Documents Table */}
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
+                {["DOCUMENT", "UPLOADED BY", "SIZE", "UPLOAD DATE", ""].map((h, i) => (
+                  <th key={h + i} style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--color-on-surface-variant)", textAlign: "left" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const activeFolderDocType = getDocTypeFromFolderName(activeFolder.name);
+                const displayedDocuments = allDocuments.filter((d) => d.documentType === activeFolderDocType);
+
+                if (displayedDocuments.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={5} style={{ padding: "48px 12px", textAlign: "center" }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 32, color: "var(--color-outline)" }}>folder_open</span>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)" }}>Folder is empty</span>
+                          <span style={{ fontSize: 13, color: "var(--color-on-surface-variant)" }}>Upload documents to this patient's folder to see them here.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return displayedDocuments.map((d) => {
+                  const iconInfo = getDocIcon(d.mimeType, d.name);
+                  const uploadedByDisplay = d.uploadedBy
+                    ? `${d.uploadedBy.firstname} ${d.uploadedBy.lastname}`
+                    : "—";
+
+                  return (
+                    <tr key={d.id} style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
+                      <td style={{ padding: "12px", fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 18, color: iconInfo.color }}>{iconInfo.icon}</span>
+                          <span style={{ wordBreak: "break-all" }}>{d.name}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px", fontSize: 13, color: "var(--color-on-surface)" }}>{uploadedByDisplay}</td>
+                      <td style={{ padding: "12px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>{formatBytes(d.fileSize)}</td>
+                      <td style={{ padding: "12px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>{formatDate(d.createdAt)}</td>
+                      <td style={{ padding: "12px", textAlign: "right" }}>
+                        <a
+                          href={`/api/documents/${d.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 32,
+                            height: 32,
+                            borderRadius: "50%",
+                            color: "var(--color-on-surface-variant)",
+                            cursor: "pointer",
+                            transition: "background 0.12s",
+                          }}
+                          onMouseOver={(e) => { e.currentTarget.style.background = "var(--color-surface-container)"; }}
+                          onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>download</span>
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
+        </Card>
+      ) : null}
+    </div>
   );
 }
 

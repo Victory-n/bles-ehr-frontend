@@ -57,49 +57,21 @@ export default function ClinicNotesPage() {
         router.push(`/clinic-notes/${folderId}`);
     };
 
-    const handleNewClinicNote = () => {
-        // TODO: Implement new clinic note functionality
-        console.log("New clinic note clicked");
-    };
-
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
             {/* ── Stat cards ─────────────────────────────────────────────────── */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-                <StatCard label="TOTAL CLINIC NOTES" value={clinicNotes.length.toLocaleString()} icon="folder" iconBg="var(--color-primary-container)" iconColor="#ffffff" />
-                <StatCard label="RECENT NOTES" value={Math.min(clinicNotes.length, 10).toLocaleString()} icon="schedule" iconBg="var(--color-secondary)" iconColor="#ffffff" />
+                <StatCard label="TOTAL CLINIC FOLDERS" value={clinicNotes.length.toLocaleString()} icon="folder" iconBg="var(--color-primary-container)" iconColor="#ffffff" />
+                <StatCard label="RECENT FOLDERS" value={Math.min(clinicNotes.length, 10).toLocaleString()} icon="schedule" iconBg="var(--color-secondary)" iconColor="#ffffff" />
                 <StatCard label="PENDING REVIEW" value="0" icon="pending_actions" iconBg="var(--color-tertiary-container)" iconColor="var(--color-on-tertiary-container)" />
             </div>
 
             {/* ── Header row ─────────────────────────────────────────────────── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <h2 style={{ fontSize: 24, fontWeight: 700, color: "var(--color-on-background)", margin: 0, letterSpacing: "-0.01em" }}>
-                    Clinic Notes
+                    Clinic Folders
                 </h2>
-                <button
-                    onClick={handleNewClinicNote}
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "10px 20px",
-                        borderRadius: 8,
-                        border: "none",
-                        background: "var(--color-secondary)",
-                        color: "#ffffff",
-                        fontSize: 14,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        transition: "background 0.15s",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.background = "#005a61")}
-                    onMouseOut={(e) => (e.currentTarget.style.background = "var(--color-secondary)")}
-                >
-                    <span className="material-symbols-outlined" style={{ fontSize: 20 }}>note_add</span>
-                    New Clinic Note
-                </button>
             </div>
 
             {/* ── Filters ────────────────────────────────────────────────────── */}
