@@ -107,6 +107,7 @@ type TabId = typeof TABS[number]["id"];
    ══════════════════════════════════════════════════════════════════════════ */
 
 export default function SettingsPage() {
+    const { user } = useAuth();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<TabId>("My Profile");
     const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -116,6 +117,14 @@ export default function SettingsPage() {
         setTimeout(() => setToastMessage(null), 4000);
     };
 
+    // Auto-redirect out of Roles & Permissions if not Admin
+    useEffect(() => {
+        if (user && user.role !== 1 && activeTab === "Roles & Permissions") {
+            setActiveTab("My Profile");
+        }
+    }, [user, activeTab]);
+
+    const visibleTabs = TABS.filter(t => t.id !== "Roles & Permissions" || user?.role === 1);
     const currentTabInfo = TABS.find(t => t.id === activeTab);
 
     return (
@@ -160,7 +169,7 @@ export default function SettingsPage() {
 
             {/* ── Tabs Navigation ── */}
             <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--color-outline-variant)", overflowX: "auto" }}>
-                {TABS.map((t) => {
+                {visibleTabs.map((t) => {
                     const isActive = activeTab === t.id;
                     return (
                         <button
@@ -215,7 +224,7 @@ export default function SettingsPage() {
                 {activeTab === "Security" && <SecurityTab onSave={showToast} />}
                 {activeTab === "Notifications" && <NotificationsTab onSave={showToast} />}
                 {activeTab === "Appearance" && <AppearanceTab onSave={showToast} />}
-                {activeTab === "Roles & Permissions" && <RolesPermissionsTab />}
+                {activeTab === "Roles & Permissions" && user?.role === 1 && <RolesPermissionsTab />}
             </div>
         </div>
     );
@@ -1084,15 +1093,38 @@ const PERMISSIONS = [
 ];
 
 function RolesPermissionsTab() {
+    const [staffList, setStaffList] = useState<any[]>([]);
     const [selectedStaff, setSelectedStaff] = useState<any>(null);
     const [permissions, setPermissions] = useState<Record<string, number[]>>({});
+    const [selectedRole, setSelectedRole] = useState<number>(0);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    // Mock staff list
-    const staffList = [
-        { id: "EMP-4821", name: "Dr. Eleanor Vance", position: "Lead Psychiatrist" },
-        { id: "EMP-3196", name: "Marcus Thorne", position: "Clinical Nurse" },
-        { id: "EMP-1862", name: "Sarah Jenkins", position: "Systems Admin" }
-    ];
+    // Fetch staff list from database
+    useEffect(() => {
+        const fetchStaff = async () => {
+            try {
+                const res = await fetch("/api/staff");
+                if (res.ok) {
+                    const data = await res.json();
+                    setStaffList(data.staff || []);
+                } else {
+                    console.error("Failed to fetch staff members");
+                }
+            } catch (error) {
+                console.error("Error fetching staff:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchStaff();
+    }, []);
+
+    const handleSelectStaff = (staff: any) => {
+        setSelectedStaff(staff);
+        setPermissions((staff.permissions as Record<string, number[]>) || {});
+        setSelectedRole(staff.role || 0);
+    };
 
     const togglePermission = (resourceKey: string, permissionKey: number) => {
         setPermissions(prev => {
@@ -1118,6 +1150,57 @@ function RolesPermissionsTab() {
         }));
     };
 
+    const handleSavePermissions = async () => {
+        if (!selectedStaff) return;
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/staff/${selectedStaff.staffId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    role: selectedRole,
+                    permissions: permissions,
+                }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                // Update local list
+                setStaffList(prev => prev.map(s => s.id === selectedStaff.id ? data.staff : s));
+                setSelectedStaff(data.staff);
+                alert("Roles & permissions saved successfully.");
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                alert(errData.message || "Failed to save permissions.");
+            }
+        } catch (error) {
+            console.error("Error saving permissions:", error);
+            alert("A network error occurred.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "60px 0", color: "var(--color-on-surface-variant)", gap: 8 }}>
+                <span className="material-symbols-outlined" style={{
+                    fontSize: 24,
+                    animation: "spin 1.5s linear infinite"
+                }}>sync</span>
+                <span style={{ fontSize: 14, fontWeight: 500 }}>Loading staff members...</span>
+                <style>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
     return (
         <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 24, alignItems: "start" }}>
             {/* Staff selector sidebar */}
@@ -1127,14 +1210,11 @@ function RolesPermissionsTab() {
                 </div>
                 {staffList.map((staff) => {
                     const isSelected = selectedStaff?.id === staff.id;
+                    const position = staff.extendedInfo?.position || (staff.role === 1 ? "Systems Admin" : "Staff");
                     return (
                         <div
                             key={staff.id}
-                            onClick={() => {
-                                setSelectedStaff(staff);
-                                // Reset permissions when selecting a new staff
-                                setPermissions({});
-                            }}
+                            onClick={() => handleSelectStaff(staff)}
                             style={{
                                 display: "flex",
                                 flexDirection: "column",
@@ -1154,10 +1234,10 @@ function RolesPermissionsTab() {
                             }}
                         >
                             <span style={{ fontSize: 14, fontWeight: isSelected ? 700 : 500, color: "var(--color-on-surface)" }}>
-                                {staff.name}
+                                {staff.firstname} {staff.lastname}
                             </span>
                             <span style={{ fontSize: 12, color: "var(--color-on-surface-variant)" }}>
-                                {staff.position}
+                                {position}
                             </span>
                         </div>
                     );
@@ -1165,12 +1245,46 @@ function RolesPermissionsTab() {
             </div>
 
             {/* Permission matrix panel */}
-            <Card title={selectedStaff ? `${selectedStaff.name} - Permission Matrix` : "Select a Staff Member to Configure Permissions"}>
+            <Card title={selectedStaff ? `${selectedStaff.firstname} ${selectedStaff.lastname} - Role & Permissions Matrix` : "Select a Staff Member to Configure Permissions"}>
                 {selectedStaff ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                        {/* Role selection section */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 400 }}>
+                            <FormGroup label="System Role" id="role-select">
+                                <select
+                                    id="role-select"
+                                    value={selectedRole}
+                                    onChange={(e) => setSelectedRole(Number(e.target.value))}
+                                    style={inputStyle}
+                                >
+                                    <option value={0}>Staff / Clinician</option>
+                                    <option value={1}>System Admin (Full Access)</option>
+                                </select>
+                            </FormGroup>
+                            {selectedRole === 1 && (
+                                <div style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    padding: "8px 12px",
+                                    background: "#e6f4ea",
+                                    color: "#137333",
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    marginTop: 4
+                                }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>info</span>
+                                    Admins automatically bypass permission matrix gates and have full system access.
+                                </div>
+                            )}
+                        </div>
+
+                        <hr style={{ border: "none", borderBottom: "1px solid var(--color-outline-variant)", margin: 0 }} />
+
                         <div>
                             <p style={{ fontSize: 14, color: "var(--color-on-surface-variant)", margin: 0, lineHeight: 1.5 }}>
-                                Configure access permissions for {selectedStaff.name}. Check the boxes to grant permissions for each resource.
+                                Configure access permissions for {selectedStaff.firstname} {selectedStaff.lastname}. Check the boxes to grant permissions for each resource.
                             </p>
                         </div>
 
@@ -1313,6 +1427,7 @@ function RolesPermissionsTab() {
 
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 10, borderTop: "1px solid var(--color-outline-variant)" }}>
                             <button
+                                onClick={() => handleSelectStaff(selectedStaff)}
                                 style={{
                                     padding: "10px 20px",
                                     borderRadius: 8,
@@ -1327,9 +1442,11 @@ function RolesPermissionsTab() {
                                 onMouseOver={(e) => e.currentTarget.style.background = "var(--color-surface-container)"}
                                 onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
                             >
-                                Cancel
+                                Reset
                             </button>
                             <button
+                                onClick={handleSavePermissions}
+                                disabled={saving}
                                 style={{
                                     display: "flex",
                                     alignItems: "center",
@@ -1337,18 +1454,24 @@ function RolesPermissionsTab() {
                                     padding: "10px 20px",
                                     borderRadius: 8,
                                     border: "none",
-                                    background: "var(--color-primary-container)",
+                                    background: saving ? "var(--color-outline)" : "var(--color-primary-container)",
                                     color: "#ffffff",
                                     fontSize: 14,
                                     fontWeight: 600,
-                                    cursor: "pointer",
+                                    cursor: saving ? "not-allowed" : "pointer",
                                     transition: "background 0.15s"
                                 }}
-                                onMouseOver={(e) => e.currentTarget.style.background = "var(--color-primary)"}
-                                onMouseOut={(e) => e.currentTarget.style.background = "var(--color-primary-container)"}
+                                onMouseOver={(e) => {
+                                    if (!saving) e.currentTarget.style.background = "var(--color-primary)";
+                                }}
+                                onMouseOut={(e) => {
+                                    if (!saving) e.currentTarget.style.background = "var(--color-primary-container)";
+                                }}
                             >
-                                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>save</span>
-                                Save Permissions
+                                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                                    {saving ? "sync" : "save"}
+                                </span>
+                                {saving ? "Saving..." : "Save Permissions"}
                             </button>
                         </div>
                     </div>

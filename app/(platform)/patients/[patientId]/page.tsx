@@ -53,6 +53,35 @@ interface FolderRecord {
   updatedAt: string;
 }
 
+interface ProgramRecord {
+  id: string;
+  programId: string;
+  name: string;
+  description?: string;
+  type: string;
+  sessionType: string;
+  frequency: string;
+  totalSessions: number;
+  duration: string;
+  maxEnrollment: number;
+  status: string;
+  extraInfo?: any;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface PatientProgramRecord {
+  id: string;
+  patientId: string;
+  programId: string;
+  status: string;
+  enrolledAt: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  program: ProgramRecord;
+}
+
 interface PatientRecord {
   id: string;
   patientId: string;
@@ -61,13 +90,19 @@ interface PatientRecord {
   dateOfBirth: string;
   gender: string;
   status: string;
-  staffId: string;
+  staffId?: string;
+  staff?: {
+    id: string;
+    firstname: string;
+    lastname: string;
+  };
   contactInformation: ContactInfo;
   emergencyContact: EmergencyContact;
   intakeNotes: IntakeNotes;
   createdAt: string;
   updatedAt: string;
   folders?: FolderRecord[];
+  patientPrograms?: PatientProgramRecord[];
 }
 
 const TABS = ["Overview", "Folder", "Programs", "Compliance", "Audit Log"] as const;
@@ -236,6 +271,7 @@ export default function PatientDetailPage() {
         <OverviewTab
           diagnosis={intake.diagnosis || "—"}
           gender={p.gender}
+          provider={p.staff ? `${p.staff.firstname} ${p.staff.lastname}` : "None"}
           phone={contact.phone || "—"}
           email={contact.email || "—"}
           address={addressDisplay}
@@ -248,7 +284,13 @@ export default function PatientDetailPage() {
           onRefresh={fetchPatient}
         />
       )}
-      {activeTab === "Programs" && <ProgramsTab />}
+      {activeTab === "Programs" && (
+        <ProgramsTab
+          patientPrograms={p.patientPrograms ?? []}
+          patientId={p.id}
+          onRefresh={fetchPatient}
+        />
+      )}
       {activeTab === "Compliance" && <ComplianceTab items={[]} />}
       {activeTab === "Audit Log" && <AuditLogTab patientId={patientId} />}
 
@@ -263,6 +305,7 @@ export default function PatientDetailPage() {
             dob: dob.toISOString().split("T")[0],
             gender: p.gender,
             diagnosis: intake.diagnosis,
+            provider: p.staffId || "none",
             phone: contact.phone,
             email: contact.email,
             address: contact.address,
@@ -286,9 +329,9 @@ export default function PatientDetailPage() {
 ══════════════════════════════════════════════════════════════════════════ */
 
 function OverviewTab({
-  diagnosis, gender, phone, email, address, emergency,
+  diagnosis, gender, provider, phone, email, address, emergency,
 }: {
-  diagnosis: string; gender: string; phone: string; email: string; address: string; emergency: string;
+  diagnosis: string; gender: string; provider: string; phone: string; email: string; address: string; emergency: string;
 }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20 }}>
@@ -297,6 +340,7 @@ function OverviewTab({
         <Card title="Clinical Summary">
           <Row label="Primary Diagnosis" value={diagnosis} />
           <Row label="Gender" value={gender} />
+          <Row label="Assigned Provider" value={provider} />
         </Card>
         <Card title="Contact Information">
           <Row label="Phone" value={phone} />
@@ -657,11 +701,324 @@ function FolderTab({ folders, onRefresh }: FolderTabProps) {
   );
 }
 
-function ProgramsTab() {
+interface ProgramsTabProps {
+  patientPrograms: PatientProgramRecord[];
+  patientId: string;
+  onRefresh: () => void;
+}
+
+function ProgramsTab({ patientPrograms, patientId, onRefresh }: ProgramsTabProps) {
+  const [allPrograms, setAllPrograms] = useState<ProgramRecord[]>([]);
+  const [loadingPrograms, setLoadingPrograms] = useState(false);
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
+  const [error, setError] = useState("");
+
+  // Fetch all available programs when the modal opens
+  const fetchAllPrograms = useCallback(async () => {
+    setLoadingPrograms(true);
+    try {
+      const res = await fetch("/api/programs");
+      if (res.ok) {
+        const data = await res.json();
+        setAllPrograms(data.programs);
+      }
+    } catch {
+      console.error("Failed to fetch programs");
+    } finally {
+      setLoadingPrograms(false);
+    }
+  }, []);
+
+  // Handle enrolling in a program
+  const handleEnroll = async (programId: string) => {
+    setEnrolling(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/programs/${programId}/enroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId }),
+      });
+      if (res.ok) {
+        setShowEnrollModal(false);
+        onRefresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.message || "Failed to enroll patient");
+      }
+    } catch {
+      setError("A network error occurred");
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  // Get a list of program IDs that the patient is already enrolled in
+  const enrolledProgramIds = new Set(patientPrograms.map(pp => pp.program.programId));
+
+  // Filter available programs (not already enrolled)
+  const availablePrograms = allPrograms.filter(p => !enrolledProgramIds.has(p.programId));
+
+  // Format date
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
   return (
-    <Card title="Enrolled Programs">
-      <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0 }}>Patient is not enrolled in any programs.</p>
-    </Card>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Enroll Button */}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={() => {
+            fetchAllPrograms();
+            setShowEnrollModal(true);
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "10px 20px",
+            borderRadius: 8,
+            border: "none",
+            background: "var(--color-secondary)",
+            color: "#ffffff",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "background 0.15s",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.background = "#005a61")}
+          onMouseOut={(e) => (e.currentTarget.style.background = "var(--color-secondary)")}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>add_circle</span>
+          Enroll in Program
+        </button>
+      </div>
+
+      {/* Enrolled Programs */}
+      <Card title="Enrolled Programs">
+        {patientPrograms.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0 }}>Patient is not enrolled in any programs.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {patientPrograms.map(pp => (
+              <div
+                key={pp.id}
+                style={{
+                  background: "var(--color-surface-container-low)",
+                  border: "1px solid var(--color-outline-variant)",
+                  borderRadius: 10,
+                  padding: 16,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                  <div>
+                    <h4 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px", color: "var(--color-on-surface)" }}>
+                      {pp.program.name}
+                    </h4>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <InfoChip icon="local_hospital" text={pp.program.type} />
+                      <InfoChip icon="schedule" text={pp.program.sessionType} />
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "2px 10px",
+                          borderRadius: 10,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: pp.status === "Active" ? "#e6f4ea" : "#fce8e8",
+                          color: pp.status === "Active" ? "#137333" : "#b3261e",
+                        }}
+                      >
+                        {pp.status}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 12, color: "var(--color-on-surface-variant)" }}>
+                    Enrolled {formatDate(pp.enrolledAt)}
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+                  <Row label="Total Sessions" value={String(pp.program.totalSessions)} />
+                  <Row label="Frequency" value={pp.program.frequency} />
+                  <Row label="Duration" value={pp.program.duration} />
+                  <Row label="Program ID" value={pp.program.programId} />
+                </div>
+
+                {pp.program.description && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--color-outline-variant)" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-on-surface-variant)", display: "block", marginBottom: 4 }}>
+                      Description
+                    </span>
+                    <p style={{ fontSize: 13, color: "var(--color-on-surface)", margin: 0 }}>
+                      {pp.program.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Enroll Modal */}
+      {showEnrollModal && (
+        <div
+          onClick={() => setShowEnrollModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.45)",
+            backdropFilter: "blur(3px)",
+            padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 600,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#ffffff",
+              borderRadius: 14,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "20px 24px",
+                borderBottom: "1px solid var(--color-outline-variant)",
+                position: "sticky",
+                top: 0,
+                background: "#ffffff",
+                zIndex: 1,
+                borderRadius: "14px 14px 0 0",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 24, color: "var(--color-primary-container)" }}>
+                  school
+                </span>
+                <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>
+                  Enroll in Program
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowEnrollModal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-on-surface-variant)", padding: 4 }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 22 }}>close</span>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+              {error && (
+                <div style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  background: "#fce8e8",
+                  color: "#b3261e",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}>
+                  {error}
+                </div>
+              )}
+
+              {loadingPrograms ? (
+                <div style={{ textAlign: "center", padding: "40px 0" }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 32, color: "var(--color-primary-container)", animation: "spin 1s linear infinite" }}>
+                    progress_activity
+                  </span>
+                  <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", marginTop: 8, marginBottom: 0 }}>
+                    Loading programs...
+                  </p>
+                </div>
+              ) : availablePrograms.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0, textAlign: "center" }}>
+                  No available programs to enroll in.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {availablePrograms.map(program => (
+                    <div
+                      key={program.id}
+                      style={{
+                        background: "var(--color-surface-container-low)",
+                        border: "1px solid var(--color-outline-variant)",
+                        borderRadius: 10,
+                        padding: 16,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 16,
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <h4 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 4px", color: "var(--color-on-surface)" }}>
+                          {program.name}
+                        </h4>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 12, color: "var(--color-on-surface-variant)" }}>
+                            {program.type} • {program.sessionType} • {program.totalSessions} sessions
+                          </span>
+                        </div>
+                        {program.description && (
+                          <p style={{ fontSize: 12, color: "var(--color-on-surface-variant)", margin: "4px 0 0" }}>
+                            {program.description}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleEnroll(program.programId)}
+                        disabled={enrolling}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "8px 16px",
+                          borderRadius: 8,
+                          border: "none",
+                          background: enrolling ? "var(--color-outline-variant)" : "var(--color-primary-container)",
+                          color: "#ffffff",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: enrolling ? "not-allowed" : "pointer",
+                          opacity: enrolling ? 0.7 : 1,
+                          transition: "background 0.15s",
+                        }}
+                        onMouseOver={(e) => { if (!enrolling) e.currentTarget.style.background = "var(--color-primary)" }}
+                        onMouseOut={(e) => { if (!enrolling) e.currentTarget.style.background = "var(--color-primary-container)" }}
+                      >
+                        {enrolling ? "Enrolling..." : "Enroll"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

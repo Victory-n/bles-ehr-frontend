@@ -18,6 +18,7 @@ export async function POST(req: Request) {
       dateOfBirth,
       gender,
       diagnosis,
+      provider,
       phone,
       email,
       address,
@@ -42,6 +43,9 @@ export async function POST(req: Request) {
     const emergencyContact = { name: emergencyName, relationship: emergencyRelationship, phone: emergencyPhone };
     const intakeNotes = { diagnosis, notes };
 
+    // Determine staffId: if provider is "none", set to null, else use the provider (staff id)
+    const staffId = provider === "none" ? null : (provider || user.id);
+
     // Create the patient and audit log atomically
     const result = await prisma.$transaction(async (tx) => {
       const patient = await tx.patient.create({
@@ -52,7 +56,7 @@ export async function POST(req: Request) {
           dateOfBirth: new Date(dateOfBirth),
           gender,
           status: "Active",
-          staffId: user.id, // Assigning to the current logged-in clinician for referential integrity
+          staffId,
           contactInformation,
           emergencyContact,
           intakeNotes,
@@ -101,6 +105,15 @@ export async function GET() {
 
     const patients = await prisma.patient.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        staff: {
+          select: {
+            id: true,
+            firstname: true,
+            lastname: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({ patients }, { status: 200 });

@@ -17,6 +17,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       where: {
         OR: [{ id }, { patientId: id }],
       },
+      include: {
+        staff: {
+          select: {
+            id: true,
+            firstname: true,
+            lastname: true,
+          },
+        },
+        patientPrograms: {
+          include: {
+            program: true,
+          },
+          orderBy: {
+            enrolledAt: "desc",
+          },
+        },
+      },
     });
 
     if (!patient) {
@@ -93,6 +110,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       dateOfBirth,
       gender,
       diagnosis,
+      provider,
       phone,
       email,
       address,
@@ -117,6 +135,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const emergencyContact = { name: emergencyName, relationship: emergencyRelationship, phone: emergencyPhone };
     const intakeNotes = { diagnosis, notes };
 
+    // Determine staffId: if provider is "none", set to null, else use the provider (staff id)
+    const staffId = provider === "none" ? null : (provider || existing.staffId);
+
     const updatedFields: Record<string, { old: any; new: any }> = {};
 
     if (existing.firstname !== firstName) updatedFields.firstname = { old: existing.firstname, new: firstName };
@@ -125,6 +146,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       updatedFields.dateOfBirth = { old: existing.dateOfBirth.toISOString().split("T")[0], new: dateOfBirth };
     }
     if (existing.gender !== gender) updatedFields.gender = { old: existing.gender, new: gender };
+    if (existing.staffId !== staffId) updatedFields.staffId = { old: existing.staffId, new: staffId };
 
     const oldContact = (existing.contactInformation as Record<string, string>) || {};
     for (const key of ["phone", "email", "address", "city", "zip"]) {
@@ -161,6 +183,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           lastname: lastName,
           dateOfBirth: new Date(dateOfBirth),
           gender,
+          staffId,
           contactInformation,
           emergencyContact,
           intakeNotes,

@@ -1,21 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import ProgramFormModal from "@/components/programs/ProgramFormModal";
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Mock Program Data
+   Types & Constants
 ══════════════════════════════════════════════════════════════════════════ */
 
 type ProgramStatus = "Active" | "Closed" | "Paused";
 
 interface Program {
     id: string;
+    programId: string;
     name: string;
+    description?: string;
     type: string;
     sessionType: string;
-    dateCreated: string;
+    frequency: string;
+    totalSessions: number;
+    duration: string;
+    maxEnrollment: number;
+    extraInfo?: { notes?: string };
     status: ProgramStatus;
+    createdAt: string;
 }
 
 const STATUS_STYLES: Record<ProgramStatus, { bg: string; color: string; dot: string; label: string }> = {
@@ -24,39 +32,61 @@ const STATUS_STYLES: Record<ProgramStatus, { bg: string; color: string; dot: str
     Closed: { bg: "#fce8e8", color: "#b3261e", dot: "#b3261e", label: "Closed" },
 };
 
-const PROGRAMS: Program[] = [
-    { id: "PRG-001", name: "Cognitive Behavioral Therapy", type: "PHP", sessionType: "Group", dateCreated: "2026-01-12", status: "Active" },
-    { id: "PRG-002", name: "Anxiety Management", type: "POP", sessionType: "Single", dateCreated: "2026-02-15", status: "Active" },
-    { id: "PRG-003", name: "Substance Abuse Recovery", type: "IOP", sessionType: "Group", dateCreated: "2025-11-20", status: "Closed" },
-    { id: "PRG-004", name: "Family Counseling", type: "POP", sessionType: "Group", dateCreated: "2026-03-05", status: "Paused" },
-    { id: "PRG-005", name: "Mindfulness Training", type: "PHP", sessionType: "Single", dateCreated: "2026-04-10", status: "Active" },
-    { id: "PRG-006", name: "Anger Management", type: "IOP", sessionType: "Group", dateCreated: "2025-08-22", status: "Closed" },
-    { id: "PRG-007", name: "Trauma Support", type: "PHP", sessionType: "Group", dateCreated: "2026-05-01", status: "Active" },
-];
-
-const TOTAL = PROGRAMS.length;
-const ACTIVE = PROGRAMS.filter((p) => p.status === "Active").length;
+const PAGE_SIZE = 10;
 
 /* ══════════════════════════════════════════════════════════════════════════
    Programs Page
 ══════════════════════════════════════════════════════════════════════════ */
 export default function ProgramsPage() {
     const router = useRouter();
+    const [programs, setPrograms] = useState<Program[]>([]);
+    const [loadingPrograms, setLoadingPrograms] = useState(true);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [typeFilter, setTypeFilter] = useState("All");
     const [currentPage, setCurrentPage] = useState(1);
-    
-    // We will hardcode 1 page for this demo
-    const totalPages = 1;
+    const [showCreateModal, setShowCreateModal] = useState(false);
+
+    const fetchPrograms = useCallback(async () => {
+        try {
+            setLoadingPrograms(true);
+            const res = await fetch("/api/programs");
+            if (res.ok) {
+                const data = await res.json();
+                setPrograms(data.programs ?? []);
+            }
+        } catch (err) {
+            console.error("Failed to fetch programs:", err);
+        } finally {
+            setLoadingPrograms(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchPrograms(); }, [fetchPrograms]);
+
+    /* ── Derived data ──────────────────────────────────────────────────── */
+    const filtered = programs.filter((p) => {
+        const name = p.name.toLowerCase();
+        const matchesSearch = !search || name.includes(search.toLowerCase()) || p.programId.toLowerCase().includes(search.toLowerCase());
+        const matchesStatus = statusFilter === "All" || p.status === statusFilter;
+        const matchesType = typeFilter === "All" || p.type === typeFilter;
+        return matchesSearch && matchesStatus && matchesType;
+    });
+
+    const totalFiltered = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+    const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+    const total = programs.length;
+    const active = programs.filter((p) => p.status === "Active").length;
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
             {/* ── Stat cards ─────────────────────────────────────────────────── */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-                <StatCard label="TOTAL PROGRAMS" value={TOTAL.toLocaleString()} icon="list_alt" iconBg="var(--color-primary-container)" iconColor="#ffffff" />
-                <StatCard label="ACTIVE PROGRAMS" value={ACTIVE.toLocaleString()} icon="check_circle" iconBg="var(--color-secondary)" iconColor="#ffffff" />
+                <StatCard label="TOTAL PROGRAMS" value={total.toLocaleString()} icon="list_alt" iconBg="var(--color-primary-container)" iconColor="#ffffff" />
+                <StatCard label="ACTIVE PROGRAMS" value={active.toLocaleString()} icon="check_circle" iconBg="var(--color-secondary)" iconColor="#ffffff" />
             </div>
 
             {/* ── Header row ─────────────────────────────────────────────────── */}
@@ -65,6 +95,7 @@ export default function ProgramsPage() {
                     Programs
                 </h2>
                 <button
+                    onClick={() => setShowCreateModal(true)}
                     style={{
                         display: "flex",
                         alignItems: "center",
@@ -132,7 +163,7 @@ export default function ProgramsPage() {
                     label="Type"
                     value={typeFilter}
                     onChange={setTypeFilter}
-                    options={["All", "POP", "PHP", "IOP"]}
+                    options={["All", "PHP", "POP", "IOP", "OP"]}
                 />
             </div>
 
@@ -146,7 +177,7 @@ export default function ProgramsPage() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                         <tr style={{ borderBottom: "1px solid var(--color-outline-variant)", background: "var(--color-surface-container-low)" }}>
-                            {["S/N", "PROGRAM NAME", "PROGRAM TYPE", "SESSION TYPE", "DATE CREATED", "STATUS", "ACTION"].map((h, i) => (
+                            {["S/N", "PROGRAM ID", "PROGRAM NAME", "PROGRAM TYPE", "SESSION TYPE", "DATE CREATED", "STATUS", "ACTION"].map((h, i) => (
                                 <th
                                     key={h}
                                     style={{
@@ -155,7 +186,7 @@ export default function ProgramsPage() {
                                         fontWeight: 700,
                                         letterSpacing: "0.05em",
                                         color: "var(--color-on-surface-variant)",
-                                        textAlign: i === 6 ? "right" : "left",
+                                        textAlign: i === 7 ? "right" : "left",
                                         whiteSpace: "nowrap",
                                     }}
                                 >
@@ -165,13 +196,18 @@ export default function ProgramsPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {PROGRAMS.map((p, i) => {
-                            const st = STATUS_STYLES[p.status];
+                        {loadingPrograms ? (
+                            <tr><td colSpan={8} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 14 }}>Loading programs…</td></tr>
+                        ) : paginated.length === 0 ? (
+                            <tr><td colSpan={8} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 14 }}>No programs found.</td></tr>
+                        ) : paginated.map((p, i) => {
+                            const st = STATUS_STYLES[p.status] ?? STATUS_STYLES.Active;
+                            const dateCreated = new Date(p.createdAt).toLocaleDateString();
                             return (
                                 <tr
                                     key={p.id}
                                     style={{
-                                        borderBottom: i < PROGRAMS.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                                        borderBottom: i < paginated.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
                                         transition: "background 0.12s",
                                         cursor: "pointer",
                                     }}
@@ -180,7 +216,11 @@ export default function ProgramsPage() {
                                 >
                                     {/* S/N */}
                                     <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: "var(--color-primary-container)" }}>
-                                        {i + 1}
+                                        {(currentPage - 1) * PAGE_SIZE + i + 1}
+                                    </td>
+                                    {/* Program ID */}
+                                    <td style={{ padding: "14px 20px", fontSize: 13, fontFamily: "var(--font-mono)", color: "var(--color-on-surface-variant)" }}>
+                                        {p.programId}
                                     </td>
                                     {/* Name */}
                                     <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)" }}>
@@ -196,7 +236,7 @@ export default function ProgramsPage() {
                                     </td>
                                     {/* Date Created */}
                                     <td style={{ padding: "14px 20px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>
-                                        {p.dateCreated}
+                                        {dateCreated}
                                     </td>
                                     {/* Status */}
                                     <td style={{ padding: "14px 20px" }}>
@@ -218,7 +258,7 @@ export default function ProgramsPage() {
                                     {/* Action */}
                                     <td style={{ padding: "14px 20px", textAlign: "right" }}>
                                         <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                                            <ActionBtn icon="visibility" title="View" onClick={() => router.push(`/programs/${p.id}`)} />
+                                            <ActionBtn icon="visibility" title="View" onClick={() => router.push(`/programs/${p.programId}`)} />
                                         </div>
                                     </td>
                                 </tr>
@@ -237,19 +277,21 @@ export default function ProgramsPage() {
                     background: "var(--color-surface-container-low)",
                 }}>
                     <span style={{ fontSize: 13, color: "var(--color-on-surface-variant)" }}>
-                        Showing 1 to {PROGRAMS.length} of {TOTAL} entries
+                        Showing {totalFiltered === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1} to {Math.min(currentPage * PAGE_SIZE, totalFiltered)} of {totalFiltered.toLocaleString()} entries
                     </span>
                     <div style={{ display: "flex", gap: 4 }}>
                         <button
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
                             style={{
                                 width: 32,
                                 height: 32,
                                 borderRadius: 6,
                                 border: "1px solid var(--color-outline-variant)",
                                 background: "var(--color-surface-container-lowest)",
-                                color: "var(--color-on-surface-variant)",
+                                color: currentPage === 1 ? "var(--color-outline)" : "var(--color-on-surface-variant)",
                                 fontSize: 13,
-                                cursor: "pointer",
+                                cursor: currentPage === 1 ? "not-allowed" : "pointer",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -257,7 +299,7 @@ export default function ProgramsPage() {
                         >
                             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>chevron_left</span>
                         </button>
-                        {[1].map((n) => (
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
                             <button
                                 key={n}
                                 onClick={() => setCurrentPage(n)}
@@ -281,15 +323,17 @@ export default function ProgramsPage() {
                             </button>
                         ))}
                         <button
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages}
                             style={{
                                 width: 32,
                                 height: 32,
                                 borderRadius: 6,
                                 border: "1px solid var(--color-outline-variant)",
                                 background: "var(--color-surface-container-lowest)",
-                                color: "var(--color-on-surface-variant)",
+                                color: currentPage === totalPages ? "var(--color-outline)" : "var(--color-on-surface-variant)",
                                 fontSize: 13,
-                                cursor: "pointer",
+                                cursor: currentPage === totalPages ? "not-allowed" : "pointer",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -300,6 +344,10 @@ export default function ProgramsPage() {
                     </div>
                 </div>
             </div>
+
+            {showCreateModal && (
+                <ProgramFormModal onClose={() => setShowCreateModal(false)} onSave={() => fetchPrograms()} />
+            )}
         </div>
     );
 }

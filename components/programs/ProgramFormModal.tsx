@@ -4,78 +4,38 @@ import React, { useState } from "react";
 import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 
-/* ══════════════════════════════════════════════════════════════════════════
-   Patient Form Modal — shared between Add & Edit flows
-══════════════════════════════════════════════════════════════════════════ */
-
-export interface PatientFormData {
-  firstName?: string;
-  lastName?: string;
-  dob?: string;
-  gender?: string;
-  diagnosis?: string;
-  provider?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  city?: string;
-  zip?: string;
-  emergencyName?: string;
-  emergencyRelationship?: string;
-  emergencyPhone?: string;
-  notes?: string;
+interface Program {
+  id: string;
+  programId: string;
+  name: string;
+  description?: string;
+  type: string;
+  sessionType: string;
+  frequency: string;
+  totalSessions: number;
+  duration: string;
+  maxEnrollment: number;
+  extraInfo?: { notes?: string };
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Props {
-  mode: "add" | "edit";
-  initialData?: PatientFormData;
-  editPatientId?: string;
   onClose: () => void;
-  onSave?: (data: PatientFormData) => void;
+  onSave?: (data: any) => void;
+  program?: Program;
 }
 
-export default function PatientFormModal({ mode, initialData, editPatientId, onClose, onSave }: Props) {
-  const isEdit = mode === "edit";
-  const title = isEdit ? "Edit Patient" : "Add New Patient";
-  const icon = isEdit ? "edit" : "person_add";
-  const saveLabel = isEdit ? "Update Patient" : "Save Patient";
+export default function ProgramFormModal({ onClose, onSave, program }: Props) {
   const { user } = useAuth();
   const [showSetPinModal, setShowSetPinModal] = useState(false);
   const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [staffList, setStaffList] = useState<{ id: string; firstname: string; lastname: string }[]>([]);
-  const [staffLoading, setStaffLoading] = useState(false);
 
-  // Fetch staff list on mount
-  React.useEffect(() => {
-    async function fetchStaff() {
-      setStaffLoading(true);
-      try {
-        const res = await fetch("/api/staff");
-        if (res.ok) {
-          const data = await res.json();
-          setStaffList(data.staff);
-        }
-      } catch (err) {
-        console.error("Failed to fetch staff:", err);
-      } finally {
-        setStaffLoading(false);
-      }
-    }
-
-    fetchStaff();
-  }, []);
-
-  // Prepare provider options
-  const providerOptions = [
-    { value: "none", label: "None" },
-    ...staffList.map(staff => ({
-      value: staff.id,
-      label: `${staff.firstname} ${staff.lastname}`
-    }))
-  ];
+  const isEditMode = !!program;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -89,27 +49,26 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
     }
   };
 
-  const submitPatientData = async () => {
+  const submitProgramData = async () => {
     if (!pendingFormData) return;
     setLoading(true);
     setError("");
 
     try {
       const payload = Object.fromEntries(pendingFormData.entries());
-      const url = isEdit && editPatientId ? `/api/patients/${editPatientId}` : "/api/patients";
-      const method = isEdit ? "PUT" : "POST";
-      const res = await fetch(url, {
-        method,
+      const res = await fetch(isEditMode ? `/api/programs/${program.programId}` : "/api/programs", {
+        method: isEditMode ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
       if (res.ok) {
-        onSave?.(payload as any);
+        const data = await res.json();
+        onSave?.(data.program);
         onClose();
       } else {
         const data = await res.json().catch(() => ({}));
-        setError(data.message || "Failed to save patient.");
+        setError(data.message || `Failed to ${isEditMode ? 'update' : 'create'} program.`);
       }
     } catch (err) {
       setError("A network error occurred.");
@@ -117,6 +76,18 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
       setLoading(false);
     }
   };
+
+  const defaultValues = isEditMode ? {
+    name: program.name,
+    description: program.description || "",
+    type: program.type,
+    frequency: program.frequency,
+    totalSessions: program.totalSessions,
+    duration: program.duration,
+    maxEnrollment: program.maxEnrollment,
+    sessionType: program.sessionType,
+    notes: (program.extraInfo as { notes?: string })?.notes || ""
+  } : {};
 
   return (
     <div
@@ -163,8 +134,8 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 24, color: "var(--color-primary-container)" }}>{icon}</span>
-            <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>{title}</h3>
+            <span className="material-symbols-outlined" style={{ fontSize: 24, color: "var(--color-primary-container)" }}>{isEditMode ? "edit" : "add_box"}</span>
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>{isEditMode ? "Edit Program" : "Create Program"}</h3>
           </div>
           <button
             onClick={onClose}
@@ -177,7 +148,7 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
         {/* ── Body ────────────────────────────────────────────────────── */}
         <form
           onSubmit={handleSubmit}
-          style={{ padding: "8px 24px 24px", display: "flex", flexDirection: "column", gap: 24 }}
+          style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 20 }}
         >
           {error && (
             <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--color-error-container)", color: "var(--color-on-error-container)", fontSize: 13, fontWeight: 600 }}>
@@ -185,60 +156,123 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
             </div>
           )}
 
-          {/* Personal Information */}
-          <SectionHeading icon="person" color="var(--color-primary-container)" label="Personal Information" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <FormField name="firstName" label="First Name" placeholder="e.g. Jane" defaultValue={initialData?.firstName} required />
-            <FormField name="lastName" label="Last Name" placeholder="e.g. Doe" defaultValue={initialData?.lastName} required />
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <FormField name="dateOfBirth" label="Date of Birth" placeholder="dd/mm/yyyy" type="date" icon="calendar_today" defaultValue={initialData?.dob} required />
-            <FormField name="gender" label="Gender Identity" placeholder="Select gender..." type="select" options={["Male", "Female", "Non-Binary", "Prefer not to say"]} defaultValue={initialData?.gender} required />
-          </div>
+          {/* Section: Program Details */}
+          <SectionHeading icon="settings_suggest" color="var(--color-primary-container)" label="Program Configuration" />
 
-          <Divider />
+          {/* Name of the program */}
+          <FormField name="name" label="Program Name" placeholder="e.g. Cognitive Behavioral Therapy" defaultValue={defaultValues.name} required />
 
-          {/* Clinical Details */}
-          <SectionHeading icon="stethoscope" color="var(--color-secondary)" label="Clinical Details" />
-          <FormField name="diagnosis" label="Primary Diagnosis (ICD-10/DSM-5)" placeholder="Search diagnosis codes..." icon="search" defaultValue={initialData?.diagnosis} />
-          <FormField name="provider" label="Assigned Provider" placeholder="Select primary clinician..." type="select" options={providerOptions} defaultValue={initialData?.provider} />
-
-          <Divider />
-
-          {/* Contact Information */}
-          <SectionHeading icon="call" color="var(--color-primary-container)" label="Contact Information" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <FormField name="phone" label="Phone Number" placeholder="(555) 000-0000" icon="call" defaultValue={initialData?.phone} />
-            <FormField name="email" label="Email Address" placeholder="patient@example.com" icon="mail" defaultValue={initialData?.email} />
-          </div>
-          <FormField name="address" label="Home Address" placeholder="Street Address" defaultValue={initialData?.address} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 14 }}>
-            <FormField name="city" label="" placeholder="City" defaultValue={initialData?.city} />
-            <FormField name="zip" label="" placeholder="ZIP" defaultValue={initialData?.zip} />
-          </div>
-
-          <Divider />
-
-          {/* Emergency Contact */}
-          <SectionHeading icon="emergency" color="var(--color-on-error-container)" label="Emergency Contact" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <FormField name="emergencyName" label="Contact Name" placeholder="Full Name" defaultValue={initialData?.emergencyName} />
-            <FormField name="emergencyRelationship" label="Relationship" placeholder="e.g. Spouse, Parent" defaultValue={initialData?.emergencyRelationship} />
-          </div>
-          <FormField name="emergencyPhone" label="Emergency Phone Number" placeholder="(555) 000-0000" defaultValue={initialData?.emergencyPhone} />
-
-          <Divider />
-
-          {/* Intake Notes */}
+          {/* Description of the program */}
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 6 }}>
-              {isEdit ? "Notes" : "Intake Notes"} <span style={{ fontWeight: 400, color: "var(--color-on-surface-variant)" }}>(Optional)</span>
+              Description
+            </label>
+            <textarea
+              name="description"
+              placeholder="Provide a detailed description of the program..."
+              rows={3}
+              defaultValue={defaultValues.description}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid var(--color-outline-variant)",
+                background: "var(--color-surface-container-lowest)",
+                fontSize: 13,
+                color: "var(--color-on-surface)",
+                outline: "none",
+                resize: "vertical",
+                fontFamily: "inherit",
+                transition: "border-color 0.15s",
+                boxSizing: "border-box",
+              }}
+              onFocus={(e) => (e.target.style.borderColor = "var(--color-primary-container)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--color-outline-variant)")}
+            />
+          </div>
+
+          <Divider />
+
+          {/* Configuration Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            {/* Program types (Eg. PHP, POP, IOP, etc) */}
+            <FormField
+              name="type"
+              label="Program Type"
+              placeholder="Select type..."
+              type="select"
+              options={["PHP (Partial Hospitalization Program)", "POP (Post-Op Program)", "IOP (Intensive Outpatient Program)", "OP (Outpatient Program)"]}
+              defaultValue={defaultValues.type}
+              required
+            />
+            {/* Session frequency */}
+            <FormField
+              name="frequency"
+              label="Session Frequency"
+              placeholder="Select frequency..."
+              type="select"
+              options={["Daily", "Weekly", "Weekends", "Monthly", "Bi-Weekly"]}
+              defaultValue={defaultValues.frequency}
+              required
+            />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            {/* Total sessions the program will have */}
+            <FormField
+              name="totalSessions"
+              label="Total Sessions"
+              placeholder="e.g. 12"
+              type="number"
+              min={1}
+              defaultValue={defaultValues.totalSessions}
+              required
+            />
+            {/* Duration of the program */}
+            <FormField
+              name="duration"
+              label="Duration"
+              placeholder="e.g. 6 weeks"
+              defaultValue={defaultValues.duration}
+              required
+            />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            {/* Max patient enrollment */}
+            <FormField
+              name="maxEnrollment"
+              label="Max Patient Enrollment"
+              placeholder="e.g. 15"
+              type="number"
+              min={1}
+              defaultValue={defaultValues.maxEnrollment}
+              required
+            />
+            {/* Session Type */}
+            <FormField
+              name="sessionType"
+              label="Session Type"
+              placeholder="Select session type..."
+              type="select"
+              options={["Group", "Single"]}
+              defaultValue={defaultValues.sessionType}
+              required
+            />
+          </div>
+
+          <Divider />
+
+          {/* Additional notes */}
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 6 }}>
+              Additional Notes <span style={{ fontWeight: 400, color: "var(--color-on-surface-variant)" }}>(Optional)</span>
             </label>
             <textarea
               name="notes"
-              placeholder="Brief context or special requirements..."
+              placeholder="Enter any additional staff, facility, or patient-specific guidelines..."
               rows={3}
-              defaultValue={initialData?.notes}
+              defaultValue={defaultValues.notes}
               style={{
                 width: "100%",
                 padding: "10px 12px",
@@ -259,7 +293,7 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
           </div>
 
           {/* Footer */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 8, borderTop: "1px solid var(--color-outline-variant)" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 8, borderTop: "1px solid var(--color-outline-variant)", marginTop: 8 }}>
             <button
               type="button"
               onClick={onClose}
@@ -276,8 +310,8 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
               onMouseOver={(e) => !loading && (e.currentTarget.style.background = "var(--color-primary)")}
               onMouseOut={(e) => !loading && (e.currentTarget.style.background = "var(--color-primary-container)")}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>save</span>
-              {loading ? "Saving..." : saveLabel}
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{isEditMode ? "save" : "add"}</span>
+              {loading ? `${isEditMode ? "Updating" : "Creating"}...` : `${isEditMode ? "Update" : "Create"} Program`}
             </button>
           </div>
         </form>
@@ -289,7 +323,7 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
           onClose={() => setShowSetPinModal(false)}
           onSuccess={() => {
             setShowSetPinModal(false);
-            submitPatientData();
+            submitProgramData();
           }} 
         />
       )}
@@ -298,7 +332,7 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
           onClose={() => setShowVerifyPinModal(false)}
           onSuccess={() => {
             setShowVerifyPinModal(false);
-            submitPatientData();
+            submitProgramData();
           }} 
         />
       )}
@@ -318,10 +352,9 @@ function SectionHeading({ icon, color, label }: { icon: string; color: string; l
 }
 
 function FormField({
-  label, name, placeholder, type = "text", icon, options, defaultValue, required,
+  label, name, placeholder, type = "text", icon, options, defaultValue, required, min
 }: {
-  label: string; name?: string; placeholder: string; type?: "text" | "date" | "select"; icon?: string; 
-  options?: string[] | { value: string; label: string }[]; defaultValue?: string; required?: boolean;
+  label: string; name?: string; placeholder: string; type?: "text" | "number" | "select"; icon?: string; options?: string[]; defaultValue?: string | number; required?: boolean; min?: number;
 }) {
   const baseStyle: React.CSSProperties = {
     width: "100%",
@@ -369,11 +402,7 @@ function FormField({
               required={required}
             >
               <option value="" disabled>{placeholder}</option>
-              {options?.map((o) => {
-                const value = typeof o === "string" ? o : o.value;
-                const label = typeof o === "string" ? o : o.label;
-                return <option key={value} value={value}>{label}</option>;
-              })}
+              {options?.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
             <span
               className="material-symbols-outlined"
@@ -392,6 +421,7 @@ function FormField({
             onFocus={handleFocus}
             onBlur={handleBlur}
             required={required}
+            min={min}
           />
         )}
       </div>

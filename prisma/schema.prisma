@@ -43,40 +43,44 @@ enum SignerType {
 }
 
 model User {
-  id                     String     @id @default(uuid())
-  staffId                String     @unique
+  id                     String   @id @default(uuid())
+  staffId                String   @unique
   firstname              String
   lastname               String
   sex                    String
   dateofbirth            DateTime
-  email                  String     @unique
-  password               String     @default("") // Hashed password
-  pin                    String?    // Hashed PIN for 2FA
-  twoFactorEnabled       Boolean    @default(false)
-  role                   Int        @default(0) // 0 for staff, 1 for admin
-  status                 String     @default("Active") // Active, Inactive, Suspended
-  extendedInfo           Json       @default("{}") // Extra information structure
-  permissions            Json       @default("{}") // RBAC permissions structure
-  createdAt              DateTime   @default(now())
-  updatedAt              DateTime   @updatedAt
+  email                  String   @unique
+  password               String   @default("") // Hashed password
+  pin                    String?  // Hashed PIN for 2FA
+  twoFactorEnabled       Boolean  @default(false)
+  role                   Int      @default(0) // 0 for staff, 1 for admin
+  status                 String   @default("Active") // Active, Inactive, Suspended
+  extendedInfo           Json     @default("{}") // Extra information structure
+  permissions            Json     @default("{}") // RBAC permissions structure
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
   patients               Patient[]
   auditLogs              AuditLog[]
   uploadedDocuments      Document[]
   // Signature relations
   signedDocuments        Document[] @relation("SignedDocuments")
   requestedSignatures    Document[] @relation("RequestedSignatures")
+  // Sessions
+  createdSessions        Session[]
+  // Assigned programs
+  assignedPrograms       Program[]  @relation("ProgramAssignedStaff")
 }
 
 model Patient {
   id                 String           @id @default(uuid())
   patientId          String           @unique
   firstname          String
-  lastname           String
-  dateOfBirth        DateTime
+  lastname          String
+  dateOfBirth       DateTime
   gender             String
   status             String
-  staffId            String
-  staff              User             @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  staffId            String?
+  staff              User?           @relation(fields: [staffId], references: [id], onDelete: Cascade)
   contactInformation Json             @default("{}")
   emergencyContact   Json             @default("{}")
   intakeNotes        Json             @default("{}")
@@ -93,14 +97,22 @@ model Program {
   id              String           @id @default(uuid())
   programId       String           @unique
   name            String
+  description     String?
   type            String // PHP, POP, IOP
   sessionType     String // Group, Single
+  frequency       String
+  totalSessions   Int
+  duration        String
+  maxEnrollment   Int
+  extraInfo       Json? // Holds notes, staff assigned, and other details. For reference sidebar from clinic-notes to folders
   status          String // Active, Closed, Paused
   deletedAt       DateTime?
   deletedBy       String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   patientPrograms PatientProgram[]
+  sessions        Session[]
+  assignedStaff   User[]           @relation("ProgramAssignedStaff")
 }
 
 model PatientProgram {
@@ -116,8 +128,35 @@ model PatientProgram {
   deletedBy   String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  sessions    Session[]
 
   @@unique([patientId, programId])
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  sessionId        String   @unique
+  name             String
+  description      String?
+  programId        String
+  program          Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  patientProgramId String?
+  patientProgram   PatientProgram? @relation(fields: [patientProgramId], references: [id], onDelete: Cascade)
+  status           String // Scheduled, Completed, Canceled, No-Show
+  startDate        DateTime
+  endDate          DateTime?
+  location         String?
+  notes            Json?
+  createdById      String
+  createdBy        User    @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  deletedAt        DateTime?
+  deletedBy        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([programId])
+  @@index([patientProgramId])
+  @@index([status])
 }
 
 model Folder {
@@ -164,12 +203,12 @@ model Document {
   signedByType          SignerType?
   requestedSignatureById String?
   requestedSignatureBy  User?         @relation("RequestedSignatures", fields: [requestedSignatureById], references: [id], onDelete: SetNull)
-  requestedSignatureAt  DateTime?
+  requestedSignatureAt DateTime?
   signatureNote         String?
-  deletedAt             DateTime?
-  deletedBy             String?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  deletedAt            DateTime?
+  deletedBy            String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   @@index([patientId])
   @@index([folderId])
@@ -183,10 +222,10 @@ model Document {
 model AuditLog {
   id            String   @id @default(uuid())
   action        String // CREATE, UPDATE, DELETE, SOFT_DELETE
-  modelName     String // e.g., "Patient", "User", "ClinicNote"
+  modelName     String // e.g. "Patient", "User", "ClinicNote"
   recordId      String // ID of the record that changed
   changes       Json     @default("{}") // Old and new values
   performedById String
-  performedBy   User     @relation(fields: [performedById], references: [id], onDelete: Cascade)
+  performedBy   User    @relation(fields: [performedById], references: [id], onDelete: Cascade)
   performedAt   DateTime @default(now())
 }

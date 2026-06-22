@@ -33,6 +33,7 @@ export async function GET() {
         status: true,
         extendedInfo: true,
         createdAt: true,
+        permissions: true,
       },
       orderBy: {
         createdAt: "desc",

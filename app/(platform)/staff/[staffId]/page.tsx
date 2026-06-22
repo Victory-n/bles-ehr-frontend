@@ -128,7 +128,7 @@ export default function StaffDetailPage() {
       {/* ── Tab content ─────────────────────────────────────────────────── */}
       {activeTab === "Overview" && <OverviewTab staff={staff} />}
       {activeTab === "Tasks" && <TasksTab />}
-      {activeTab === "Programs" && <ProgramsTab />}
+      {activeTab === "Programs" && <ProgramsTab programs={staff.assignedPrograms || []} />}
       {activeTab === "Queries" && <QueriesTab />}
 
     </div>
@@ -213,10 +213,72 @@ function TasksTab() {
   );
 }
 
-function ProgramsTab() {
+function ProgramsTab({ programs }: { programs: any[] }) {
   return (
     <Card title="Assigned Programs">
-      <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0 }}>Staff member is not assigned to any programs.</p>
+      {programs.length === 0 ? (
+        <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0 }}>Staff member is not assigned to any programs.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {programs.map((program) => {
+            const statusColor = program.status === "Active" ? "#137333" : program.status === "Closed" ? "#b3261e" : "#f57f17";
+            const statusBg = program.status === "Active" ? "#e6f4ea" : program.status === "Closed" ? "#fce8e8" : "#fff8e1";
+            return (
+              <div
+                key={program.id}
+                style={{
+                  background: "var(--color-surface-container-low)",
+                  border: "1px solid var(--color-outline-variant)",
+                  borderRadius: 10,
+                  padding: 16,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 16,
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+                    <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>
+                      {program.name}
+                    </h4>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "3px 10px",
+                        borderRadius: 12,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: statusBg,
+                        color: statusColor,
+                      }}
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor }} />
+                      {program.status}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", fontSize: 12, color: "var(--color-on-surface-variant)" }}>
+                    <span style={{ fontFamily: "var(--font-mono)" }}>{program.programId}</span>
+                    <span>•</span>
+                    <span>{program.type}</span>
+                    <span>•</span>
+                    <span>{program.sessionType}</span>
+                    <span>•</span>
+                    <span>{program.totalSessions} sessions</span>
+                  </div>
+                  {program.description && (
+                    <p style={{ fontSize: 12, color: "var(--color-on-surface-variant)", marginTop: 6, marginBottom: 0 }}>
+                      {program.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }
