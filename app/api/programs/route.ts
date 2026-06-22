@@ -46,7 +46,7 @@ export async function POST(req: Request) {
           totalSessions: parseInt(totalSessions),
           duration,
           maxEnrollment: parseInt(maxEnrollment),
-          extraInfo,
+          extraInfo: extraInfo || undefined,
           status: "Active",
         },
       });
