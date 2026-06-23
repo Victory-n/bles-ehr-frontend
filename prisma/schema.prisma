@@ -69,6 +69,10 @@ model User {
   createdSessions        Session[]
   // Assigned programs
   assignedPrograms       Program[]  @relation("ProgramAssignedStaff")
+  // Session Notes relations
+  signedSessionNotes      SessionNoteVersion[] @relation("NoteVersionSigner")
+  cosignedSessionNotes    SessionNoteVersion[] @relation("NoteVersionCosigner")
+  editedSessionNoteVersions SessionNoteVersion[]
 }
 
 model Patient {
@@ -153,6 +157,7 @@ model Session {
   deletedBy        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  note             SessionNote?
 
   @@index([programId])
   @@index([patientProgramId])
@@ -228,4 +233,41 @@ model AuditLog {
   performedById String
   performedBy   User    @relation(fields: [performedById], references: [id], onDelete: Cascade)
   performedAt   DateTime @default(now())
+}
+
+model SessionNote {
+  id               String               @id @default(uuid())
+  sessionId        String               @unique
+  session          Session              @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  versions         SessionNoteVersion[]
+}
+
+model SessionNoteVersion {
+  id            String       @id @default(uuid())
+  noteId        String
+  note          SessionNote  @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  version       Int          // 1, 2, 3...
+  content       String       // The text contents of the note version
+  status        String       // "DRAFT" | "SIGNED" | "LOCKED"
+  
+  // Auditing
+  editedById    String
+  editedBy      User         @relation(fields: [editedById], references: [id], onDelete: Cascade)
+  editSummary   String?      // Optional log explaining the edit
+  
+  // Primary Signature (Transitions DRAFT -> SIGNED)
+  signedById    String?
+  signedBy      User?        @relation("NoteVersionSigner", fields: [signedById], references: [id])
+  signedAt      DateTime?
+  
+  // Co-signature (Transitions SIGNED -> LOCKED)
+  cosignedById  String?
+  cosignedBy    User?        @relation("NoteVersionCosigner", fields: [cosignedById], references: [id])
+  cosignedAt    DateTime?
+  
+  createdAt     DateTime     @default(now())
+
+  @@unique([noteId, version])
 }

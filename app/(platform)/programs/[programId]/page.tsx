@@ -7,6 +7,7 @@ import EnrollPatientModal from "@/components/programs/EnrollPatientModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { hasPermission, PERMISSION_LEVELS } from "@/lib/auth/permissions";
 import { VerifyPinModal } from "@/components/PinModal";
+import SessionNoteModal from "@/components/programs/SessionNoteModal";
 
 /* ════════════════════════════════════════════════════════════════════════
    Types & Constants
@@ -48,6 +49,28 @@ interface Staff {
   status: string;
 }
 
+interface Session {
+  id: string;
+  sessionId: string;
+  name: string;
+  description?: string;
+  location?: string;
+  status: string;
+  startDate: string;
+  endDate?: string;
+  patientProgram?: {
+    patient: {
+      firstname: string;
+      lastname: string;
+    };
+  };
+  note?: {
+    versions: {
+      status: string;
+    }[];
+  } | null;
+}
+
 const TABS = ["Overview", "Enrolled Patients", "Sessions"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -73,6 +96,9 @@ export default function ProgramDetailPage() {
   const [allStaff, setAllStaff] = useState<Staff[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [activeNoteSession, setActiveNoteSession] = useState<{ id: string; name: string } | null>(null);
 
   const fetchProgram = useCallback(async () => {
     try {
@@ -147,10 +173,26 @@ export default function ProgramDetailPage() {
     }
   };
 
+  const fetchSessions = useCallback(async () => {
+    try {
+      setLoadingSessions(true);
+      const res = await fetch(`/api/programs/${programId}/sessions`);
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data.sessions || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch sessions:", error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  }, [programId]);
+
   useEffect(() => {
     fetchProgram();
     fetchEnrolledPatients();
-  }, [fetchProgram, fetchEnrolledPatients]);
+    fetchSessions();
+  }, [fetchProgram, fetchEnrolledPatients, fetchSessions]);
 
   const handleEnrollPatient = async (patientId: string) => {
     if (!program) return;
@@ -395,7 +437,7 @@ export default function ProgramDetailPage() {
                   alert(`This program is currently ${program.status.toLowerCase()}. It must be active to schedule a session.`);
                   return;
                 }
-                alert("Scheduling a session...");
+                router.push(`/programs/${programId}/schedule-session`);
               }}
             />
             {program.status === "Active" && (
@@ -466,7 +508,13 @@ export default function ProgramDetailPage() {
           onRemovePatient={handleRemovePatient}
         />
       )}
-      {activeTab === "Sessions" && <SessionsTab />}
+      {activeTab === "Sessions" && (
+        <SessionsTab 
+          sessions={sessions} 
+          loadingSessions={loadingSessions} 
+          onOpenNote={(session) => setActiveNoteSession({ id: session.id, name: session.name })} 
+        />
+      )}
 
       {/* Edit Modal */}
       {showEditModal && (
@@ -678,6 +726,20 @@ export default function ProgramDetailPage() {
             setPinAction(null);
           }}
           onSuccess={handlePinSuccess}
+        />
+      )}
+
+      {activeNoteSession && (
+        <SessionNoteModal
+          sessionId={activeNoteSession.id}
+          sessionName={activeNoteSession.name}
+          onClose={() => {
+            setActiveNoteSession(null);
+            fetchSessions();
+          }}
+          onNoteStatusChange={() => {
+            fetchSessions();
+          }}
         />
       )}
 
@@ -919,23 +981,163 @@ function EnrolledPatientsTab({
   );
 }
 
-function SessionsTab() {
+function SessionsTab({
+  sessions,
+  loadingSessions,
+  onOpenNote
+}: {
+  sessions: Session[];
+  loadingSessions: boolean;
+  onOpenNote: (session: Session) => void;
+}) {
   return (
     <Card title="Program Sessions" noPadding>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ borderBottom: "1px solid var(--color-outline-variant)", background: "var(--color-surface-container-low)" }}>
-            {["S/N", "SESSION NAME", "SESSION COUNT", "STATUS", "DURATION", "ACTION"].map((h, i) => (
-              <th key={h} style={{ padding: "12px 20px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--color-on-surface-variant)", textAlign: i === 5 ? "right" : "left", whiteSpace: "nowrap" }}>
+            {["S/N", "SESSION ID", "SESSION NAME", "DATE & TIME", "LOCATION", "STATUS", "CLINICAL NOTE"].map((h, i) => (
+              <th key={h} style={{ padding: "12px 20px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--color-on-surface-variant)", textAlign: "left", whiteSpace: "nowrap" }}>
                 {h}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td colSpan={6} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 14 }}>No sessions scheduled yet.</td>
-          </tr>
+          {loadingSessions ? (
+            <tr>
+              <td colSpan={6} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 14 }}>Loading sessions...</td>
+            </tr>
+          ) : sessions.length === 0 ? (
+            <tr>
+              <td colSpan={6} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 14 }}>No sessions scheduled yet.</td>
+            </tr>
+          ) : (
+            sessions.map((session, index) => {
+              type SessionStatus = "Scheduled" | "Completed" | "Canceled" | "No-Show";
+              const statusStyles: Record<SessionStatus, { bg: string; color: string; dot: string }> = {
+                Scheduled: { bg: "#e8f0fe", color: "#1a73e8", dot: "#1a73e8" },
+                Completed: { bg: "#e6f4ea", color: "#137333", dot: "#137333" },
+                Canceled: { bg: "#fce8e8", color: "#b3261e", dot: "#b3261e" },
+                "No-Show": { bg: "#fff8e1", color: "#f57f17", dot: "#f57f17" }
+              };
+              const statusStylesValue = statusStyles[session.status as SessionStatus] || statusStyles.Scheduled;
+
+              const start = new Date(session.startDate);
+              const dateStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              const timeStr = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              const dateTimeText = `${dateStr} at ${timeStr}`;
+
+              const patient = session.patientProgram?.patient;
+
+              return (
+                <tr
+                  key={session.id}
+                  style={{
+                    borderBottom: "1px solid var(--color-outline-variant)",
+                    transition: "background 0.12s"
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-surface-container-low)")}
+                  onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: "var(--color-primary-container)" }}>
+                    {index + 1}
+                  </td>
+                  <td style={{ padding: "14px 20px", fontSize: 13, fontFamily: "var(--font-mono)", color: "var(--color-on-surface-variant)" }}>
+                    {session.sessionId}
+                  </td>
+                  <td style={{ padding: "14px 20px" }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)" }}>
+                      {session.name}
+                    </div>
+                    {patient && (
+                      <div style={{ fontSize: 12, color: "var(--color-primary-container)", marginTop: 2 }}>
+                        Patient: {patient.firstname} {patient.lastname}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: "14px 20px", fontSize: 13, color: "var(--color-on-surface)" }}>
+                    {dateTimeText}
+                  </td>
+                  <td style={{ padding: "14px 20px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>
+                    {session.location || "N/A"}
+                  </td>
+                  <td style={{ padding: "14px 20px" }}>
+                    <span style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "4px 10px",
+                      borderRadius: 12,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      background: statusStylesValue.bg,
+                      color: statusStylesValue.color
+                    }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusStylesValue.dot }} />
+                      {session.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: "14px 20px" }}>
+                    {(() => {
+                      const latestStatus = session.note?.versions?.[0]?.status;
+                      let badgeBg = "var(--color-surface-container)";
+                      let badgeColor = "var(--color-on-surface-variant)";
+                      let badgeText = "Empty";
+                      let icon = "note_add";
+
+                      if (latestStatus === "DRAFT") {
+                        badgeBg = "#e8f0fe";
+                        badgeColor = "#1a73e8";
+                        badgeText = "Draft";
+                        icon = "edit_note";
+                      } else if (latestStatus === "SIGNED") {
+                        badgeBg = "#fff8e1";
+                        badgeColor = "#f57f17";
+                        badgeText = "Signed";
+                        icon = "draw";
+                      } else if (latestStatus === "LOCKED") {
+                        badgeBg = "#e6f4ea";
+                        badgeColor = "#137333";
+                        badgeText = "Locked";
+                        icon = "verified_user";
+                      }
+
+                      return (
+                        <button
+                          onClick={() => onOpenNote(session)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 12px",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            background: badgeBg,
+                            color: badgeColor,
+                            border: "1px solid var(--color-outline-variant)",
+                            cursor: "pointer",
+                            transition: "all 0.12s"
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.borderColor = badgeColor;
+                            e.currentTarget.style.background = "var(--color-surface-container-low)";
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.borderColor = "var(--color-outline-variant)";
+                            e.currentTarget.style.background = badgeBg;
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{icon}</span>
+                          {badgeText}
+                        </button>
+                      );
+                    })()}
+                  </td>
+                </tr>
+              );
+            })
+          )}
         </tbody>
       </table>
     </Card>
