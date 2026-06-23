@@ -23,7 +23,10 @@ export async function GET(
     }
 
     const patientPrograms = await prisma.patientProgram.findMany({
-      where: { programId: program.id },
+      where: {
+        programId: program.id,
+        deletedAt: null
+      },
       include: {
         patient: true
       },

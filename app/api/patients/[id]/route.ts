@@ -26,6 +26,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           },
         },
         patientPrograms: {
+          where: {
+            deletedAt: null,
+          },
           include: {
             program: true,
           },

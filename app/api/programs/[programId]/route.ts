@@ -83,6 +83,13 @@ export async function PUT(
       return NextResponse.json({ message: "Program not found" }, { status: 404 });
     }
 
+    if (existingProgram.status === "Closed") {
+      return NextResponse.json({ message: "This program has been ended and cannot be edited" }, { status: 400 });
+    }
+    if (existingProgram.status === "Paused") {
+      return NextResponse.json({ message: "This program is paused. Resume it to edit program details." }, { status: 400 });
+    }
+
     const extraInfo = notes ? { ...existingProgram.extraInfo as object, notes } : existingProgram.extraInfo;
 
     const updatedFields: Record<string, { old: any; new: any }> = {};

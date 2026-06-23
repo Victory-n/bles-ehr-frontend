@@ -4,6 +4,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ProgramFormModal from "@/components/programs/ProgramFormModal";
 import EnrollPatientModal from "@/components/programs/EnrollPatientModal";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { hasPermission, PERMISSION_LEVELS } from "@/lib/auth/permissions";
+import { VerifyPinModal } from "@/components/PinModal";
 
 /* ════════════════════════════════════════════════════════════════════════
    Types & Constants
@@ -53,11 +56,14 @@ type Tab = (typeof TABS)[number];
 ═══════════════════════════════════════════════════════════════════════════ */
 
 export default function ProgramDetailPage() {
+  const { user } = useAuth();
   const params = useParams();
   const router = useRouter();
   const programId = params.programId as string;
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [program, setProgram] = useState<Program | null>(null);
+  const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
+  const [pinAction, setPinAction] = useState<"end" | "resume" | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -147,6 +153,12 @@ export default function ProgramDetailPage() {
   }, [fetchProgram, fetchEnrolledPatients]);
 
   const handleEnrollPatient = async (patientId: string) => {
+    if (!program) return;
+    if (enrolledPatients.length >= program.maxEnrollment) {
+      alert(`Cannot enroll patient. The program has reached its maximum enrollment capacity of ${program.maxEnrollment} patients.`);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/programs/${programId}/enroll`, {
         method: "POST",
@@ -158,9 +170,139 @@ export default function ProgramDetailPage() {
         // Refresh the enrolled patients list
         await fetchEnrolledPatients();
         setShowEnrollModal(false);
+      } else {
+        const errorData = await res.json();
+        alert(errorData.message || "Failed to enroll patient.");
       }
     } catch (error) {
       console.error("Failed to enroll patient:", error);
+      alert("An error occurred while enrolling the patient.");
+    }
+  };
+
+  const handleRemovePatient = async (patientId: string) => {
+    const confirmed = window.confirm("Are you sure you want to remove this patient from the program?");
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/programs/${programId}/enroll`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId })
+      });
+
+      if (res.ok) {
+        // Refresh the enrolled patients list
+        await fetchEnrolledPatients();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.message || "Failed to remove patient from program.");
+      }
+    } catch (error) {
+      console.error("Failed to remove patient:", error);
+      alert("An error occurred while removing the patient.");
+    }
+  };
+
+  const handlePauseProgram = async () => {
+    const confirmed = window.confirm("Are you sure you want to pause this program? Enrolls, edits, and sessions will be disabled until it is resumed.");
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/programs/${programId}/pause`, {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        await fetchProgram();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.message || "Failed to pause program.");
+      }
+    } catch (error) {
+      console.error("Failed to pause program:", error);
+      alert("An error occurred while pausing the program.");
+    }
+  };
+
+  const handleResumeProgram = async () => {
+    try {
+      const res = await fetch(`/api/programs/${programId}/resume`, {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        await fetchProgram();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.message || "Failed to resume program.");
+      }
+    } catch (error) {
+      console.error("Failed to resume program:", error);
+      alert("An error occurred while resuming the program.");
+    }
+  };
+
+  const handleResumeClosedClick = () => {
+    if (user?.role !== 1) {
+      alert("Only an administrator can resume an ended program.");
+      return;
+    }
+    const endedBy = (program?.extraInfo as any)?.endedBy;
+    if (endedBy && user.id !== endedBy) {
+      alert("Only the administrator who ended this program can resume it.");
+      return;
+    }
+    setPinAction("resume");
+    setShowVerifyPinModal(true);
+  };
+
+  const handleEndProgramClick = () => {
+    if (user?.role !== 1) {
+      alert("Only administrators can end a program.");
+      return;
+    }
+    setPinAction("end");
+    setShowVerifyPinModal(true);
+  };
+
+  const handlePinSuccess = async () => {
+    setShowVerifyPinModal(false);
+    const currentAction = pinAction;
+    setPinAction(null);
+
+    if (currentAction === "end") {
+      try {
+        const res = await fetch(`/api/programs/${programId}/end`, {
+          method: "POST",
+        });
+
+        if (res.ok) {
+          await fetchProgram();
+        } else {
+          const errorData = await res.json();
+          alert(errorData.message || "Failed to end program.");
+        }
+      } catch (error) {
+        console.error("Failed to end program:", error);
+        alert("An error occurred while ending the program.");
+      }
+    } else if (currentAction === "resume") {
+      try {
+        const res = await fetch(`/api/programs/${programId}/resume`, {
+          method: "POST",
+        });
+
+        if (res.ok) {
+          await fetchProgram();
+        } else {
+          const errorData = await res.json();
+          alert(errorData.message || "Failed to resume program.");
+        }
+      } catch (error) {
+        console.error("Failed to resume program:", error);
+        alert("An error occurred while resuming the program.");
+      }
     }
   };
 
@@ -230,19 +372,50 @@ export default function ProgramDetailPage() {
 
           {/* Right: Actions */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <PrimaryBtn icon="person_add" label="Enroll Patient" onClick={() => setShowEnrollModal(true)} />
-            <SecondaryBtn icon="event" label="Schedule Session" />
-            <SecondaryBtn icon="edit" label="Edit Program" onClick={() => setShowEditModal(true)} />
+            <PrimaryBtn 
+              icon="person_add" 
+              label="Enroll Patient" 
+              onClick={() => {
+                if (program.status !== "Active") {
+                  alert(`This program is currently ${program.status.toLowerCase()}. It must be active to enroll patients.`);
+                  return;
+                }
+                if (enrolledPatients.length >= program.maxEnrollment) {
+                  alert(`This program is at maximum enrollment capacity (${program.maxEnrollment}/${program.maxEnrollment}). Please remove a patient or increase the capacity before enrolling another patient.`);
+                  return;
+                }
+                setShowEnrollModal(true);
+              }} 
+            />
+            <SecondaryBtn 
+              icon="event" 
+              label="Schedule Session" 
+              onClick={() => {
+                if (program.status !== "Active") {
+                  alert(`This program is currently ${program.status.toLowerCase()}. It must be active to schedule a session.`);
+                  return;
+                }
+                alert("Scheduling a session...");
+              }}
+            />
+            {program.status === "Active" && (
+              <SecondaryBtn icon="edit" label="Edit Program" onClick={() => setShowEditModal(true)} />
+            )}
 
             {/* More Actions Dropdown Simulation */}
             <div style={{ display: "flex", gap: 10 }}>
               {program.status === "Active" && (
-                <SecondaryBtn icon="pause" label="Pause Program" color="#f57f17" />
+                <SecondaryBtn icon="pause" label="Pause Program" color="#f57f17" onClick={handlePauseProgram} />
               )}
               {program.status === "Paused" && (
-                <SecondaryBtn icon="play_arrow" label="Resume Program" color="#137333" />
+                <SecondaryBtn icon="play_arrow" label="Resume Program" color="#137333" onClick={handleResumeProgram} />
               )}
-              <SecondaryBtn icon="cancel" label="End Program" color="var(--color-error)" />
+              {program.status === "Closed" && user?.role === 1 && user.id === (program.extraInfo as any)?.endedBy && (
+                <SecondaryBtn icon="play_arrow" label="Resume Program" color="#137333" onClick={handleResumeClosedClick} />
+              )}
+              {program.status !== "Closed" && (
+                <SecondaryBtn icon="cancel" label="End Program" color="var(--color-error)" onClick={handleEndProgramClick} />
+              )}
             </div>
           </div>
         </div>
@@ -290,6 +463,7 @@ export default function ProgramDetailPage() {
         <EnrolledPatientsTab
           enrolledPatients={enrolledPatients}
           loadingEnrolled={loadingEnrolled}
+          onRemovePatient={handleRemovePatient}
         />
       )}
       {activeTab === "Sessions" && <SessionsTab />}
@@ -497,6 +671,16 @@ export default function ProgramDetailPage() {
         </div>
       )}
 
+      {showVerifyPinModal && (
+        <VerifyPinModal
+          onClose={() => {
+            setShowVerifyPinModal(false);
+            setPinAction(null);
+          }}
+          onSuccess={handlePinSuccess}
+        />
+      )}
+
     </div>
   );
 }
@@ -624,11 +808,14 @@ function OverviewTab({
 
 function EnrolledPatientsTab({
   enrolledPatients,
-  loadingEnrolled
+  loadingEnrolled,
+  onRemovePatient
 }: {
   enrolledPatients: any[];
   loadingEnrolled: boolean;
+  onRemovePatient?: (patientId: string) => void;
 }) {
+  const router = useRouter();
   return (
     <Card title="Enrolled Patients" noPadding>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -709,7 +896,17 @@ function EnrolledPatientsTab({
                   </td>
                   <td style={{ padding: "14px 20px", textAlign: "right" }}>
                     <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                      <ActionBtn icon="visibility" title="View Patient" />
+                      <ActionBtn 
+                        icon="visibility" 
+                        title="View Patient" 
+                        onClick={() => router.push(`/patients/${patient.id}`)}
+                      />
+                      <ActionBtn 
+                        icon="person_remove" 
+                        title="Remove Patient from Program" 
+                        color="var(--color-error)"
+                        onClick={() => onRemovePatient?.(patient.id)}
+                      />
                     </div>
                   </td>
                 </tr>
