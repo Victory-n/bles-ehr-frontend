@@ -1,63 +1,408 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { computeDiff, DiffChunk } from "@/lib/utils/diff";
+import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 
-interface PatientData {
-  name: string;
-  dob: string;
-  age: number;
-  ehr: string;
-  provider: string;
-  status: string;
+interface UserInfo {
+  id: string;
+  firstname: string;
+  lastname: string;
+  role: number;
+  staffId: string;
+}
+
+interface NoteVersion {
+  id: string;
+  version: number;
+  title: string;
+  noteType: string;
+  program: string | null;
+  tags: any; // string or array
+  content: string;
+  status: "DRAFT" | "SIGNED" | "LOCKED" | string;
+  editSummary: string | null;
+  createdAt: string;
+  editedBy: UserInfo;
+  signedBy: UserInfo | null;
+  signedAt: string | null;
+  cosignedBy: UserInfo | null;
+  cosignedAt: string | null;
+}
+
+interface NoteData {
+  id: string;
+  documentId: string;
+  createdAt: string;
+  updatedAt: string;
+  versions: NoteVersion[];
 }
 
 interface ClinicNoteDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
-  noteName: string;
-  noteDate: string;
-  patient: PatientData;
+  documentId?: string;
+  patient: any;
+  onUpdate?: () => void;
 }
 
 export default function ClinicNoteDetailModal({
   isOpen,
   onClose,
-  noteName,
-  noteDate,
+  documentId,
   patient,
+  onUpdate,
 }: ClinicNoteDetailModalProps) {
-  const [activeSection, setActiveSection] = useState<"Subjective" | "Objective" | "Assessment" | "Plan">("Subjective");
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [noteData, setNoteData] = useState<NoteData | null>(null);
 
-  const subjectiveRef = useRef<HTMLDivElement>(null);
-  const objectiveRef = useRef<HTMLDivElement>(null);
-  const assessmentRef = useRef<HTMLDivElement>(null);
-  const planRef = useRef<HTMLDivElement>(null);
+  // Form State
+  const [content, setContent] = useState("");
+  const [title, setTitle] = useState("");
+  const [noteType, setNoteType] = useState("");
+  const [program, setProgram] = useState("None");
+  const [tags, setTags] = useState<string[]>([]);
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [newTagInput, setNewTagInput] = useState("");
+  const [editSummary, setEditSummary] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
 
-  if (!isOpen) return null;
+  // History & Diff State
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [showDiffMode, setShowDiffMode] = useState(false);
 
-  // Extract patient initials
-  const names = patient.name.split(", ");
-  const lastName = names[0] || "";
-  const firstName = names[1] || "";
-  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-  const displayName = `${firstName} ${lastName}`;
+  // Lists
+  const [programsList, setProgramsList] = useState<any[]>([]);
 
-  const scrollToSection = (section: "Subjective" | "Objective" | "Assessment" | "Plan", ref: React.RefObject<HTMLDivElement | null>) => {
-    setActiveSection(section);
-    if (ref.current && scrollContainerRef.current) {
-      const topPos = ref.current.offsetTop - 20; // 20px padding offset
-      scrollContainerRef.current.scrollTo({
-        top: topPos,
-        behavior: "smooth",
-      });
+  // PIN Modals State
+  const [showSetPinModal, setShowSetPinModal] = useState(false);
+  const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
+  const [pinActionType, setPinActionType] = useState<"sign" | "cosign" | null>(null);
+
+  // Speech Recognition State
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+
+  // Setup speech recognition check
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        setIsSpeechSupported(true);
+      }
+    }
+  }, []);
+
+  // Stop listening when unmounting or modal closes
+  useEffect(() => {
+    return () => {
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch (e) { }
+      }
+    };
+  }, [recognition]);
+
+  const toggleListening = () => {
+    if (isListening) {
+      if (recognition) {
+        recognition.stop();
+      }
+      setIsListening(false);
+    } else {
+      const SpeechRecognition = typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
+      if (!SpeechRecognition) return;
+
+      try {
+        const rec = new SpeechRecognition();
+        rec.continuous = true;
+        rec.interimResults = false;
+        rec.lang = "en-US";
+
+        rec.onresult = (event: any) => {
+          let transcript = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              transcript += event.results[i][0].transcript;
+            }
+          }
+          if (transcript) {
+            setContent((prev) => {
+              const trimmed = prev.trim();
+              return trimmed ? `${trimmed} ${transcript.trim()}` : transcript.trim();
+            });
+          }
+        };
+
+        rec.onerror = (event: any) => {
+          if (event.error !== "no-speech" && event.error !== "aborted") {
+            console.warn("Speech recognition warning:", event.error);
+          }
+          setIsListening(false);
+        };
+
+        rec.onend = () => {
+          setIsListening(false);
+        };
+
+        rec.start();
+        setRecognition(rec);
+        setIsListening(true);
+      } catch (err) {
+        console.error("Failed to start speech recognition:", err);
+      }
     }
   };
+
+  // Fetch programs list on mount
+  useEffect(() => {
+    const fetchPrograms = async () => {
+      try {
+        const res = await fetch("/api/programs");
+        if (res.ok) {
+          const data = await res.json();
+          setProgramsList(data.programs || []);
+        }
+      } catch (e) {
+        console.error("Failed to fetch programs", e);
+      }
+    };
+    if (isOpen) {
+      fetchPrograms();
+    }
+  }, [isOpen]);
+
+  const fetchNote = async () => {
+    if (!documentId) return;
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/clinic-notes/${documentId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNoteData(data.clinicNote);
+        if (data.clinicNote && data.clinicNote.versions.length > 0) {
+          const latest = data.clinicNote.versions[0];
+          setContent(latest.content);
+          setTitle(latest.title);
+          setNoteType(latest.noteType);
+          setProgram(latest.program || "None");
+          
+          try {
+            setTags(typeof latest.tags === "string" ? JSON.parse(latest.tags) : latest.tags || []);
+          } catch (e) {
+            setTags([]);
+          }
+
+          setSelectedVersionId(latest.id);
+          setIsEditing(latest.status === "DRAFT");
+        } else {
+          setContent("");
+          setIsEditing(true);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching clinic note:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && documentId) {
+      fetchNote();
+    }
+  }, [isOpen, documentId]);
+
+  const handleSave = async () => {
+    if (!content.trim()) {
+      alert("Note content cannot be empty.");
+      return;
+    }
+    if (!title.trim()) {
+      alert("Note title cannot be empty.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const res = await fetch(`/api/clinic-notes/${documentId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content,
+          title,
+          noteType,
+          program,
+          tags,
+          editSummary: editSummary.trim() || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        setEditSummary("");
+        await fetchNote();
+        if (onUpdate) onUpdate();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to save note.");
+      }
+    } catch (error) {
+      console.error("Error saving note:", error);
+      alert("An error occurred while saving the note.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSignClick = () => {
+    setPinActionType("sign");
+    if (!user?.hasPin) {
+      setShowSetPinModal(true);
+    } else {
+      setShowVerifyPinModal(true);
+    }
+  };
+
+  const handleCosignClick = () => {
+    setPinActionType("cosign");
+    if (!user?.hasPin) {
+      setShowSetPinModal(true);
+    } else {
+      setShowVerifyPinModal(true);
+    }
+  };
+
+  const completeSign = async () => {
+    try {
+      setSaving(true);
+      const res = await fetch(`/api/clinic-notes/${documentId}/sign`, {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        await fetchNote();
+        if (onUpdate) onUpdate();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to sign note.");
+      }
+    } catch (error) {
+      console.error("Error signing note:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const completeCosign = async () => {
+    try {
+      setSaving(true);
+      const res = await fetch(`/api/clinic-notes/${documentId}/cosign`, {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        await fetchNote();
+        if (onUpdate) onUpdate();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to co-sign note.");
+      }
+    } catch (error) {
+      console.error("Error co-signing note:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startAmendment = () => {
+    const confirmed = window.confirm(
+      "Amending this note will create a new draft version (e.g. v2). The previous signed/locked versions will remain frozen in the history log. Do you want to proceed?"
+    );
+    if (!confirmed) return;
+
+    setIsEditing(true);
+    setEditSummary(`Amendment to version v${latestVersion?.version || 1}`);
+  };
+
+  const handleInsertTemplate = () => {
+    const template = 
+      "\n\n--- CLINICAL TEMPLATE ---" +
+      "\nAssessment / Diagnosis Refinement: Patient exhibits symptoms consistent with anxiety/mood triggers." +
+      "\nPlan & Interventions:" +
+      "\n1. Cognitive Restructuring practice." +
+      "\n2. Monitor daily behavioral activation triggers.";
+    setContent((prev) => prev + template);
+  };
+
+  // Add Tag
+  const handleAddTagSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    let cleaned = newTagInput.trim();
+    if (!cleaned) return;
+    if (!cleaned.startsWith("#")) {
+      cleaned = "#" + cleaned;
+    }
+    if (!tags.includes(cleaned)) {
+      setTags([...tags, cleaned]);
+    }
+    setNewTagInput("");
+    setIsAddingTag(false);
+  };
+
+  // Remove Tag
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter(t => t !== tagToRemove));
+  };
+
+  const latestVersion = noteData && noteData.versions.length > 0 ? noteData.versions[0] : null;
+  const isLatestSelected = latestVersion && selectedVersionId === latestVersion.id;
+
+  // Selected Version details
+  const selectedVersion = noteData?.versions.find((v) => v.id === selectedVersionId);
+
+  // Compute diff against previous version
+  let diffChunks: DiffChunk[] = [];
+  let prevVersion: NoteVersion | undefined;
+  if (selectedVersion && noteData) {
+    const currentIndex = noteData.versions.findIndex((v) => v.id === selectedVersion.id);
+    prevVersion = noteData.versions[currentIndex + 1];
+    if (prevVersion) {
+      diffChunks = computeDiff(prevVersion.content, selectedVersion.content);
+    }
+  }
+
+  // Permission checks
+  const isAdmin = user?.role === 1;
+  const isPrimarySigner = latestVersion?.signedBy?.id === user?.id;
+  const canCoSign = isAdmin && latestVersion?.status === "SIGNED" && !isPrimarySigner;
+  const canAmend = isAdmin && (latestVersion?.status === "SIGNED" || latestVersion?.status === "LOCKED");
+
+  // Status Styles
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case "DRAFT":
+        return { bg: "#e8f0fe", color: "#1a73e8" };
+      case "SIGNED":
+        return { bg: "#fff8e1", color: "#f57f17" };
+      case "LOCKED":
+        return { bg: "#e6f4ea", color: "#137333" };
+      default:
+        return { bg: "var(--color-surface-container)", color: "var(--color-on-surface-variant)" };
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
     <>
       {/* Backdrop */}
       <div
+        onClick={onClose}
         style={{
           position: "fixed",
           inset: 0,
@@ -66,8 +411,19 @@ export default function ClinicNoteDetailModal({
           zIndex: 9999,
           transition: "opacity 0.2s ease",
         }}
-        onClick={onClose}
       />
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes mic-pulse {
+          0% { transform: scale(1); box-shadow: 0 4px 12px rgba(234, 67, 53, 0.4); }
+          50% { transform: scale(1.1); box-shadow: 0 4px 20px rgba(234, 67, 53, 0.7); }
+          100% { transform: scale(1); box-shadow: 0 4px 12px rgba(234, 67, 53, 0.4); }
+        }
+        .mic-active {
+          animation: mic-pulse 1.5s infinite ease-in-out !important;
+        }
+      `}} />
 
       {/* Slide-over Container */}
       <div
@@ -76,8 +432,8 @@ export default function ClinicNoteDetailModal({
           top: 0,
           right: 0,
           bottom: 0,
-          width: "80%",
-          maxWidth: "1000px",
+          width: "90%",
+          maxWidth: "1200px",
           backgroundColor: "#ffffff",
           boxShadow: "-8px 0 32px rgba(0, 0, 0, 0.15)",
           zIndex: 10000,
@@ -95,7 +451,7 @@ export default function ClinicNoteDetailModal({
           }
         `}</style>
 
-        {/* ── Header ──────────────────────────────────────────────────────── */}
+        {/* Header */}
         <div style={{
           padding: "16px 24px",
           borderBottom: "1px solid #e5e5e7",
@@ -105,54 +461,27 @@ export default function ClinicNoteDetailModal({
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span className="material-symbols-outlined" style={{ fontSize: 20, color: "#86868b" }}>description</span>
-            <span style={{ fontSize: 13, fontWeight: 500, color: "#86868b" }}>Progress Note</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#86868b" }}>Clinic Note Details</span>
             <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "#86868b" }} />
             
-            {/* Status Chips */}
-            <span style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              padding: "2px 8px",
-              borderRadius: 12,
-              backgroundColor: "#e8f0fe",
-              color: "#1a73e8",
-              fontSize: 11,
-              fontWeight: 600,
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#1a73e8" }} />
-              Locked
-            </span>
-            <span style={{
-              padding: "2px 8px",
-              borderRadius: 12,
-              backgroundColor: "#f5f5f7",
-              color: "#515154",
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.03em"
-            }}>
-              HIPAA LOCKED
-            </span>
+            {latestVersion && (
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "2px 8px",
+                borderRadius: 12,
+                fontSize: 11,
+                fontWeight: 600,
+                background: getStatusStyle(latestVersion.status).bg,
+                color: getStatusStyle(latestVersion.status).color,
+              }}>
+                {latestVersion.status} (v{latestVersion.version})
+              </span>
+            )}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 12px",
-              borderRadius: 6,
-              border: "1px solid #d2d2d7",
-              background: "#ffffff",
-              fontSize: 13,
-              fontWeight: 500,
-              color: "#1d1d1f",
-              cursor: "pointer",
-            }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>history</span>
-              History
-            </button>
             <button 
               onClick={onClose}
               style={{
@@ -171,236 +500,732 @@ export default function ClinicNoteDetailModal({
           </div>
         </div>
 
-        {/* ── Document Details ────────────────────────────────────────────── */}
-        <div style={{ padding: "24px 32px 16px 32px", borderBottom: "1px solid #e5e5e7" }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 16px 0", color: "#1d1d1f" }}>
-            CBT Session Progress Note — Week 14
-          </h1>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
-            {/* Patient Name Box */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                backgroundColor: "#e3f2fd",
-                color: "#1e88e5",
-                fontSize: 12,
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-                {initials}
-              </div>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "#1d1d1f" }}>{displayName}</span>
-              <span style={{
-                padding: "2px 6px",
-                borderRadius: 4,
-                backgroundColor: "#f5f5f7",
-                color: "#86868b",
-                fontSize: 11,
-                fontWeight: 600,
-              }}>{patient.ehr}</span>
-            </div>
-
-            <span style={{ color: "#d2d2d7" }}>|</span>
-
-            {/* Author */}
-            <span style={{ fontSize: 14, color: "#515154" }}>
-              Author: <strong style={{ fontWeight: 600, color: "#1d1d1f" }}>{patient.provider}</strong>
+        {/* Content Body */}
+        {loading ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+            <span
+              className="material-symbols-outlined"
+              style={{
+                fontSize: 36,
+                color: "var(--color-primary)",
+                animation: "spin 1s linear infinite",
+              }}
+            >
+              progress_activity
             </span>
-
-            <span style={{ color: "#d2d2d7" }}>|</span>
-
-            {/* Date Created */}
-            <span style={{ fontSize: 14, color: "#86868b" }}>
-              Created: {noteDate}
+            <span style={{ fontSize: 14, color: "var(--color-on-surface-variant)", marginTop: 12 }}>
+              Loading Clinical Note...
             </span>
           </div>
+        ) : (
+          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 380px", overflow: "hidden" }}>
+            
+            {/* LEFT SIDE: Content and Fields */}
+            <div style={{ display: "flex", flexDirection: "column", padding: "24px 32px", overflowY: "auto", gap: 20 }}>
+              
+              {/* Alert for amendment */}
+              {isEditing && latestVersion && (latestVersion.status === "SIGNED" || latestVersion.status === "LOCKED") && (
+                <div style={{
+                  background: "#fff3cd",
+                  border: "1px solid #ffeeba",
+                  color: "#856404",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>warning</span>
+                  <span>
+                    Creating a new version draft (v{latestVersion.version + 1}). The active signed note will remain active until this new draft is signed.
+                  </span>
+                </div>
+              )}
 
-          {/* Signature Details Row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", fontSize: 13, color: "#86868b", marginBottom: 16 }}>
-            <span>Signed: <strong style={{ color: "#137333", fontWeight: 500 }}>{noteDate}, 04:15 PM</strong></span>
-            <span>Co-signed: <strong style={{ color: "#137333", fontWeight: 500 }}>{noteDate}, 05:00 PM</strong></span>
-            <span style={{ marginLeft: "auto", fontSize: 12 }}>v3 • NOTE-001</span>
-          </div>
+              {/* Editable Fields (Only if isEditing is true) */}
+              {isEditing ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, borderBottom: "1px solid #e5e5e7", paddingBottom: 20 }}>
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                    
+                    {/* Note Title */}
+                    <div style={{ flex: 1.2, minWidth: 260 }}>
+                      <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "#86868b", display: "block", marginBottom: 6 }}>NOTE TITLE</label>
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        style={{
+                          width: "100%",
+                          fontSize: 20,
+                          fontWeight: 700,
+                          color: "#1d1d1f",
+                          border: "none",
+                          borderBottom: "1px solid #d2d2d7",
+                          padding: "4px 0",
+                          outline: "none",
+                          background: "transparent",
+                        }}
+                      />
+                    </div>
 
-          {/* Tags */}
-          <div style={{ display: "flex", gap: 8 }}>
-            {["#CBT", "#Depression", "#Homework Review"].map(tag => (
-              <span key={tag} style={{
-                padding: "4px 12px",
-                borderRadius: 16,
-                backgroundColor: "#f5f5f7",
-                color: "#515154",
-                fontSize: 12,
-                fontWeight: 500,
-              }}>
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
+                    {/* Note Type & Program */}
+                    <div style={{ flex: 2, display: "flex", gap: 12, minWidth: 320 }}>
+                      
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "#86868b", display: "block", marginBottom: 6 }}>NOTE TYPE</label>
+                        <select
+                          value={noteType}
+                          onChange={(e) => setNoteType(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            fontSize: 13,
+                            fontWeight: 500,
+                            borderRadius: 6,
+                            border: "1px solid #d2d2d7",
+                            outline: "none",
+                          }}
+                        >
+                          <option value="Intake Session">Intake Session</option>
+                          <option value="Progress Note">Progress Note</option>
+                          <option value="Group Therapy Note">Group Therapy Note</option>
+                          <option value="Assessment Summary">Assessment Summary</option>
+                        </select>
+                      </div>
 
-        {/* ── Co-signatures Banner ────────────────────────────────────────── */}
-        <div style={{
-          backgroundColor: "#f8f9fa",
-          borderBottom: "1px solid #e5e5e7",
-          padding: "12px 32px",
-          display: "flex",
-          gap: 40,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1d1d1f" }}>
-            <span className="material-symbols-outlined icon-fill" style={{ color: "#137333", fontSize: 18 }}>check_circle</span>
-            <span>
-              Signed by <strong style={{ fontWeight: 600 }}>{patient.provider}</strong> on {noteDate}, 04:15 PM
-            </span>
-          </div>
-          <div style={{ width: 1, height: 18, backgroundColor: "#e5e5e7", alignSelf: "center" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1d1d1f" }}>
-            <span className="material-symbols-outlined" style={{ color: "#1d1d1f", fontSize: 18 }}>lock</span>
-            <span>
-              Co-signed by <strong style={{ fontWeight: 600 }}>Dr. Amaka Kolade</strong> on {noteDate}, 05:00 PM
-            </span>
-          </div>
-        </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "#86868b", display: "block", marginBottom: 6 }}>PROGRAMS</label>
+                        <select
+                          value={program}
+                          onChange={(e) => setProgram(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            fontSize: 13,
+                            fontWeight: 500,
+                            borderRadius: 6,
+                            border: "1px solid #d2d2d7",
+                            outline: "none",
+                          }}
+                        >
+                          <option value="None">None</option>
+                          {programsList.map((p) => (
+                            <option key={p.id} value={p.name}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-        {/* ── Split Layout Content ────────────────────────────────────────── */}
-        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          {/* Left Navigation Sidebar */}
-          <div style={{
-            width: 180,
-            borderRight: "1px solid #e5e5e7",
-            padding: "20px 8px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-            backgroundColor: "#ffffff",
-          }}>
-            {(["Subjective", "Objective", "Assessment", "Plan"] as const).map((sec) => {
-              const refs = {
-                Subjective: subjectiveRef,
-                Objective: objectiveRef,
-                Assessment: assessmentRef,
-                Plan: planRef,
-              };
-              const isSelected = activeSection === sec;
-              return (
-                <button
-                  key={sec}
-                  onClick={() => scrollToSection(sec, refs[sec])}
-                  style={{
-                    padding: "8px 16px",
-                    textAlign: "left",
-                    borderRadius: 6,
-                    border: "none",
-                    background: isSelected ? "#e3f2fd" : "transparent",
-                    color: isSelected ? "#0d47a1" : "#515154",
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "#86868b", display: "block", marginBottom: 6 }}>TAGS</label>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      {tags.map((tag) => (
+                        <span key={tag} style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "4px 10px",
+                          borderRadius: 12,
+                          backgroundColor: "#e8f0fe",
+                          color: "#1a73e8",
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}>
+                          {tag}
+                          <span onClick={() => handleRemoveTag(tag)} className="material-symbols-outlined" style={{ fontSize: 12, cursor: "pointer" }}>close</span>
+                        </span>
+                      ))}
+
+                      {isAddingTag ? (
+                        <form onSubmit={handleAddTagSubmit} style={{ display: "inline-flex" }}>
+                          <input
+                            type="text"
+                            value={newTagInput}
+                            onChange={(e) => setNewTagInput(e.target.value)}
+                            placeholder="Tag..."
+                            autoFocus
+                            onBlur={() => setIsAddingTag(false)}
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: 8,
+                              border: "1px solid #1a73e8",
+                              fontSize: 11,
+                              outline: "none",
+                            }}
+                          />
+                        </form>
+                      ) : (
+                        <button
+                          onClick={() => setIsAddingTag(true)}
+                          style={{
+                            border: "none",
+                            background: "none",
+                            color: "#1a73e8",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 2
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
+                          Add Tag
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+              ) : (
+                // View Mode Metadata Details
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, borderBottom: "1px solid #e5e5e7", paddingBottom: 16 }}>
+                  <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
+                    {selectedVersion?.title || "Untitled Note"}
+                  </h1>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", fontSize: 13, color: "#515154" }}>
+                    <span>Type: <strong style={{ color: "#1d1d1f" }}>{selectedVersion?.noteType}</strong></span>
+                    <span style={{ color: "#d2d2d7" }}>|</span>
+                    <span>Program: <strong style={{ color: "#1d1d1f" }}>{selectedVersion?.program || "None"}</strong></span>
+                    <span style={{ color: "#d2d2d7" }}>|</span>
+                    <span>Author: <strong style={{ color: "#1d1d1f" }}>{selectedVersion?.editedBy.firstname} {selectedVersion?.editedBy.lastname}</strong></span>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {tags.map(tag => (
+                      <span key={tag} style={{
+                        padding: "3px 10px",
+                        borderRadius: 12,
+                        backgroundColor: "#f5f5f7",
+                        color: "#515154",
+                        fontSize: 11,
+                        fontWeight: 500,
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Editor Toolbar (Only if isEditing is true) */}
+              {isEditing && (
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "6px 12px",
+                  backgroundColor: "#f5f6f8",
+                  borderRadius: 8,
+                  border: "1px solid #e5e5e7",
+                }}>
+                  <button
+                    onClick={handleInsertTemplate}
+                    type="button"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "1px solid #d2d2d7",
+                      backgroundColor: "#ffffff",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "#1d1d1f",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>feed</span>
+                    Insert Clinical Template
+                  </button>
+
+                  {isSpeechSupported && (
+                    <button
+                      onClick={toggleListening}
+                      type="button"
+                      className={isListening ? "mic-active" : ""}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "6px 10px",
+                        borderRadius: 6,
+                        border: isListening ? "1px solid #b3261e" : "1px solid #d2d2d7",
+                        backgroundColor: isListening ? "#fce8e8" : "#ffffff",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: isListening ? "#b3261e" : "#1d1d1f",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                        {isListening ? "mic" : "mic_none"}
+                      </span>
+                      {isListening ? "Listening..." : "Dictate Note"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Note Content Area */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#86868b" }}>
+                  NOTE CONTENT
+                </label>
+
+                {isEditing ? (
+                  <textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Enter clinical observations..."
+                    disabled={saving}
+                    style={{
+                      flex: 1,
+                      minHeight: 240,
+                      borderRadius: 8,
+                      border: "1px solid #d2d2d7",
+                      padding: 16,
+                      fontSize: 14,
+                      lineHeight: 1.6,
+                      color: "#1d1d1f",
+                      resize: "none",
+                      outline: "none",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    flex: 1,
+                    minHeight: 240,
+                    borderRadius: 8,
+                    border: "1px solid #e5e5e7",
+                    background: "#f9f9fb",
+                    padding: 16,
                     fontSize: 14,
-                    fontWeight: isSelected ? 600 : 500,
-                    cursor: "pointer",
-                    transition: "all 0.12s",
-                  }}
-                >
-                  {sec}
-                </button>
-              );
-            })}
-          </div>
+                    lineHeight: 1.6,
+                    color: "#1d1d1f",
+                    whiteSpace: "pre-wrap",
+                    overflowY: "auto",
+                  }}>
+                    {showDiffMode && prevVersion ? (
+                      <div>
+                        {diffChunks.map((chunk, idx) => {
+                          if (chunk.added) {
+                            return (
+                              <span key={idx} style={{ background: "#e6f4ea", color: "#137333", textDecoration: "underline", padding: "2px 4px", borderRadius: 4, fontWeight: 500 }}>
+                                {chunk.value}
+                              </span>
+                            );
+                          }
+                          if (chunk.removed) {
+                            return (
+                              <span key={idx} style={{ background: "#fce8e8", color: "#c5221f", textDecoration: "line-through", padding: "2px 4px", borderRadius: 4 }}>
+                                {chunk.value}
+                              </span>
+                            );
+                          }
+                          return <span key={idx}>{chunk.value}</span>;
+                        })}
+                      </div>
+                    ) : (
+                      selectedVersion?.content || "No content."
+                    )}
+                  </div>
+                )}
 
-          {/* Right Monospace Document Area */}
-          <div
-            ref={scrollContainerRef}
-            style={{
-              flex: 1,
-              padding: "32px",
+                {/* Edit Reason input */}
+                {isEditing && latestVersion && (latestVersion.status === "SIGNED" || latestVersion.status === "LOCKED") && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "#86868b" }}>
+                      AMENDMENT / CHANGE REASON
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Corrected date or expanded assessment detail"
+                      value={editSummary}
+                      onChange={(e) => setEditSummary(e.target.value)}
+                      disabled={saving}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        border: "1px solid #d2d2d7",
+                        fontSize: 13,
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons Panel */}
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: "auto",
+                paddingTop: 16,
+                borderTop: "1px solid #e5e5e7",
+              }}>
+                <div>
+                  {!isEditing && prevVersion && (
+                    <button
+                      onClick={() => setShowDiffMode(!showDiffMode)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: showDiffMode ? "#e8f0fe" : "none",
+                        border: "1px solid #d2d2d7",
+                        color: showDiffMode ? "#1a73e8" : "#1d1d1f",
+                        padding: "8px 14px",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 18 }}>difference</span>
+                      {showDiffMode ? "Hide Diff" : "Show Diff vs Previous"}
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  {isEditing ? (
+                    <>
+                      {latestVersion && (
+                        <button
+                          onClick={() => {
+                            setIsEditing(false);
+                            setContent(latestVersion.content);
+                            setTitle(latestVersion.title);
+                            setNoteType(latestVersion.noteType);
+                            setProgram(latestVersion.program || "None");
+                            try {
+                              setTags(typeof latestVersion.tags === "string" ? JSON.parse(latestVersion.tags) : latestVersion.tags || []);
+                            } catch (e) {
+                              setTags([]);
+                            }
+                          }}
+                          disabled={saving}
+                          style={{
+                            padding: "8px 16px",
+                            borderRadius: 8,
+                            border: "1px solid #d2d2d7",
+                            background: "transparent",
+                            color: "#515154",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "8px 16px",
+                          borderRadius: 8,
+                          border: "none",
+                          background: "#0d47a1",
+                          color: "#ffffff",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          opacity: saving ? 0.7 : 1,
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>save</span>
+                        {saving ? "Saving..." : "Save Draft"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Amend button */}
+                      {canAmend && (
+                        <button
+                          onClick={startAmendment}
+                          disabled={saving}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "8px 16px",
+                            borderRadius: 8,
+                            border: "1px solid #d2d2d7",
+                            background: "transparent",
+                            color: "#1d1d1f",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit_note</span>
+                          Amend Note
+                        </button>
+                      )}
+
+                      {/* Primary sign button */}
+                      {isLatestSelected && latestVersion.status === "DRAFT" && (
+                        <button
+                          onClick={handleSignClick}
+                          disabled={saving}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "8px 16px",
+                            borderRadius: 8,
+                            border: "none",
+                            background: "#0d47a1",
+                            color: "#ffffff",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            opacity: saving ? 0.7 : 1,
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>draw</span>
+                          Sign Note
+                        </button>
+                      )}
+
+                      {/* Co-sign button */}
+                      {isLatestSelected && canCoSign && (
+                        <button
+                          onClick={handleCosignClick}
+                          disabled={saving}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "8px 16px",
+                            borderRadius: 8,
+                            border: "none",
+                            background: "#137333",
+                            color: "#ffffff",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            opacity: saving ? 0.7 : 1,
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>verified_user</span>
+                          Co-sign & Lock
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* RIGHT SIDE: Version History Log */}
+            <div style={{
+              background: "#f5f6f8",
+              display: "flex",
+              flexDirection: "column",
               overflowY: "auto",
-              fontFamily: "'Courier New', Courier, monospace",
-              fontSize: 14,
-              lineHeight: "1.7",
-              color: "#1d1d1f",
-              backgroundColor: "#ffffff",
-              scrollBehavior: "smooth",
-            }}
-          >
-            {/* Subjective */}
-            <div ref={subjectiveRef} style={{ marginBottom: 32 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0" }}>SUBJECTIVE:</h3>
-              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                Patient {displayName} ({patient.ehr}) presented for her 14th CBT session. She reports a subjective mood rating of 5/10 this week, compared to 4/10 at last session – a slight improvement. She completed the thought record homework assigned last week, documenting 4 negative automatic thoughts with associated evidence for and against.
-                {"\n\n"}
-                She reports improved sleep over the past 5 days, averaging 6-7 hours compared to 4-5 hours previously. Appetite remains suppressed, particularly in the mornings. She denied suicidal ideation, self-harm, or intent.
-                {"\n\n"}
-                Notable stressor this week: conflict with her supervisor at work, which she identified as a trigger for a "catastrophising" thought pattern ("I'll lose my job and everything will fall apart").
-              </p>
+              borderLeft: "1px solid #e5e5e7",
+            }}>
+              <div style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid #e5e5e7",
+                background: "#f5f6f8",
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+              }}>
+                <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "#1d1d1f" }}>
+                  Version History Log
+                </h4>
+                <p style={{ fontSize: 11, color: "#86868b", margin: "4px 0 0 0" }}>
+                  Full revision history is tracked here.
+                </p>
+              </div>
+
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                {!noteData || noteData.versions.length === 0 ? (
+                  <p style={{ fontSize: 13, color: "#86868b", textAlign: "center", marginTop: 20 }}>
+                    No version history available.
+                  </p>
+                ) : (
+                  noteData.versions.map((ver) => {
+                    const isSelected = selectedVersionId === ver.id;
+                    const verStatusStyle = getStatusStyle(ver.status);
+                    const formattedDate = new Date(ver.createdAt).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+
+                    return (
+                      <div
+                        key={ver.id}
+                        onClick={() => {
+                          setSelectedVersionId(ver.id);
+                          setShowDiffMode(false);
+                          if (ver.status !== "DRAFT") {
+                            setIsEditing(false);
+                            setContent(ver.content);
+                            setTitle(ver.title);
+                            setNoteType(ver.noteType);
+                            setProgram(ver.program || "None");
+                            try {
+                              setTags(typeof ver.tags === "string" ? JSON.parse(ver.tags) : ver.tags || []);
+                            } catch (e) {
+                              setTags([]);
+                            }
+                          } else {
+                            setIsEditing(true);
+                            setContent(ver.content);
+                            setTitle(ver.title);
+                            setNoteType(ver.noteType);
+                            setProgram(ver.program || "None");
+                            try {
+                              setTags(typeof ver.tags === "string" ? JSON.parse(ver.tags) : ver.tags || []);
+                            } catch (e) {
+                              setTags([]);
+                            }
+                          }
+                        }}
+                        style={{
+                          border: isSelected
+                            ? "2px solid #0d47a1"
+                            : "1px solid #e5e5e7",
+                          borderRadius: 10,
+                          padding: 14,
+                          background: isSelected ? "#ffffff" : "#fbfbfd",
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {/* Title & Version info */}
+                        <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#1d1d1f" }}>
+                            Version v{ver.version}
+                          </span>
+                          <span style={{
+                            padding: "2px 8px",
+                            borderRadius: 8,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: verStatusStyle.bg,
+                            color: verStatusStyle.color,
+                          }}>
+                            {ver.status}
+                          </span>
+                        </div>
+
+                        {/* Editor and timestamp */}
+                        <div style={{ fontSize: 12, color: "#515154", marginBottom: 10 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>edit</span>
+                            <span>
+                              By: <b>{ver.editedBy.firstname} {ver.editedBy.lastname}</b>
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#86868b" }}>
+                            {formattedDate}
+                          </div>
+                        </div>
+
+                        {/* Reason / Summary */}
+                        {ver.editSummary && (
+                          <div style={{
+                            fontSize: 11,
+                            background: "#f5f5f7",
+                            padding: "6px 8px",
+                            borderRadius: 6,
+                            color: "#515154",
+                            marginBottom: 8,
+                            fontStyle: "italic",
+                          }}>
+                            "{ver.editSummary}"
+                          </div>
+                        )}
+
+                        {/* Signatures details */}
+                        <div style={{
+                          borderTop: "1px solid #e5e5e7",
+                          paddingTop: 8,
+                          marginTop: 8,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                          fontSize: 11,
+                        }}>
+                          {ver.signedBy ? (
+                            <div style={{ color: "#137333", display: "flex", alignItems: "center", gap: 4 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>check_circle</span>
+                              <span>Signed: {ver.signedBy.firstname} {ver.signedBy.lastname}</span>
+                            </div>
+                          ) : (
+                            <div style={{ color: "#86868b", display: "flex", alignItems: "center", gap: 4 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>pending</span>
+                              <span>Unsigned</span>
+                            </div>
+                          )}
+
+                          {ver.cosignedBy && (
+                            <div style={{ color: "#137333", display: "flex", alignItems: "center", gap: 4 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>verified</span>
+                              <span>Locked: {ver.cosignedBy.firstname} {ver.cosignedBy.lastname}</span>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
             </div>
 
-            {/* Objective */}
-            <div ref={objectiveRef} style={{ marginBottom: 32 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0" }}>OBJECTIVE:</h3>
-              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                Patient appeared well-groomed and appropriately dressed. Affect was mildly restricted but brighter than previous session. Maintained good eye contact. Speech was normal in rate, rhythm, and volume. Thought process was logical and goal-directed. No signs of psychomotor agitation or retardation observed.
-              </p>
-            </div>
-
-            {/* Assessment */}
-            <div ref={assessmentRef} style={{ marginBottom: 32 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0" }}>ASSESSMENT:</h3>
-              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                {firstName} is demonstrating gradual improvement in depressive symptoms (F32.1 Major depressive disorder, single episode, moderate). She is successfully applying cognitive restructuring techniques to workplace stressors, though she still experiences significant anxiety preceding interactions with her supervisor. Insight is good; judgment is intact. The therapeutic alliance remains strong.
-              </p>
-            </div>
-
-            {/* Plan */}
-            <div ref={planRef} style={{ marginBottom: 32 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 8px 0" }}>PLAN:</h3>
-              <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                1. Continue weekly CBT sessions focusing on cognitive restructuring for workplace anxiety.
-                {"\n"}
-                2. Homework assignment: Complete thought record for any instances of "catastrophizing" automatic thoughts.
-                {"\n"}
-                3. Monitor medication compliance and side effects.
-              </p>
-            </div>
           </div>
-        </div>
+        )}
 
-        {/* ── Footer ──────────────────────────────────────────────────────── */}
-        <div style={{
-          padding: "16px 24px",
-          borderTop: "1px solid #e5e5e7",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          backgroundColor: "#ffffff",
-        }}>
-          <span style={{ fontSize: 12, color: "#86868b" }}>
-            NOTE-001 • Version 3 • 285 words
-          </span>
-          <button style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "8px 16px",
-            borderRadius: 6,
-            border: "none",
-            background: "#f5f5f7",
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#1d1d1f",
-            cursor: "pointer",
-            transition: "background 0.12s",
-          }}
-          onMouseOver={(e) => e.currentTarget.style.background = "#e8e8ed"}
-          onMouseOut={(e) => e.currentTarget.style.background = "#f5f5f7"}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>download</span>
-            Download PDF
-          </button>
-        </div>
       </div>
+
+      {/* PIN Modals */}
+      {showSetPinModal && (
+        <SetPinModal
+          onClose={() => setShowSetPinModal(false)}
+          onSuccess={() => {
+            setShowSetPinModal(false);
+            if (user) user.hasPin = true;
+            if (pinActionType === "sign") completeSign();
+            if (pinActionType === "cosign") completeCosign();
+          }}
+        />
+      )}
+      {showVerifyPinModal && (
+        <VerifyPinModal
+          onClose={() => setShowVerifyPinModal(false)}
+          onSuccess={() => {
+            setShowVerifyPinModal(false);
+            if (pinActionType === "sign") completeSign();
+            if (pinActionType === "cosign") completeCosign();
+          }}
+        />
+      )}
     </>
   );
 }

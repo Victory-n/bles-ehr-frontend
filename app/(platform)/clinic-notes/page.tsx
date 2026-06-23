@@ -44,7 +44,7 @@ export default function ClinicNotesPage() {
     }, []);
 
     // Filter notes based on search
-    const filteredNotes = clinicNotes.filter(note => 
+    const filteredNotes = clinicNotes.filter(note =>
         note.patientName.toLowerCase().includes(search.toLowerCase()) ||
         note.patientId.toLowerCase().includes(search.toLowerCase()) ||
         note.folderId.toLowerCase().includes(search.toLowerCase())
@@ -160,7 +160,7 @@ export default function ClinicNotesPage() {
                         ) : paginatedNotes.length === 0 ? (
                             <tr>
                                 <td colSpan={4} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)" }}>
-                                    No clinic notes found
+                                    No folders found
                                 </td>
                             </tr>
                         ) : (
@@ -180,7 +180,7 @@ export default function ClinicNotesPage() {
                                     <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: "var(--color-primary-container)", width: "60px" }}>
                                         {(currentPage - 1) * 10 + i + 1}
                                     </td>
-                                    
+
                                     {/* PATIENT NAME (ID underneath) */}
                                     <td style={{ padding: "14px 20px" }}>
                                         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", marginBottom: 4 }}>
@@ -190,12 +190,12 @@ export default function ClinicNotesPage() {
                                             {note.patientId}
                                         </div>
                                     </td>
-                                    
+
                                     {/* FOLDER ID */}
                                     <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 500, color: "var(--color-on-surface)", fontFamily: "var(--font-mono)" }}>
                                         {note.folderId}
                                     </td>
-                                    
+
                                     {/* ACTION */}
                                     <td style={{ padding: "14px 20px", textAlign: "right" }}>
                                         <button

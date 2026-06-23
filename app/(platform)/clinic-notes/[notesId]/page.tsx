@@ -337,9 +337,9 @@ export default function ClinicNotesDetailPage() {
       <ClinicNoteDetailModal
         isOpen={selectedNote !== null}
         onClose={() => setSelectedNote(null)}
-        noteName={selectedNote?.name || ""}
-        noteDate={selectedNote?.createdAt ? formatDate(selectedNote.createdAt) : ""}
+        documentId={selectedNote?.id}
         patient={patient as any}
+        onUpdate={fetchData}
       />
 
       {/* --- Upload modal ---------------------------------------------- */}

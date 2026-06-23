@@ -73,6 +73,10 @@ model User {
   signedSessionNotes      SessionNoteVersion[] @relation("NoteVersionSigner")
   cosignedSessionNotes    SessionNoteVersion[] @relation("NoteVersionCosigner")
   editedSessionNoteVersions SessionNoteVersion[]
+  // Clinic Notes relations
+  signedClinicNotes      ClinicNoteVersion[] @relation("ClinicNoteVersionSigner")
+  cosignedClinicNotes    ClinicNoteVersion[] @relation("ClinicNoteVersionCosigner")
+  editedClinicNoteVersions ClinicNoteVersion[]
 }
 
 model Patient {
@@ -215,6 +219,9 @@ model Document {
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
+  // New Relation
+  clinicNote            ClinicNote?
+
   @@index([patientId])
   @@index([folderId])
   @@index([documentType])
@@ -265,6 +272,47 @@ model SessionNoteVersion {
   // Co-signature (Transitions SIGNED -> LOCKED)
   cosignedById  String?
   cosignedBy    User?        @relation("NoteVersionCosigner", fields: [cosignedById], references: [id])
+  cosignedAt    DateTime?
+  
+  createdAt     DateTime     @default(now())
+
+  @@unique([noteId, version])
+}
+
+model ClinicNote {
+  id           String               @id @default(uuid())
+  documentId   String               @unique
+  document     Document             @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  versions     ClinicNoteVersion[]
+}
+
+model ClinicNoteVersion {
+  id            String       @id @default(uuid())
+  noteId        String
+  note          ClinicNote   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  version       Int          // 1, 2, 3...
+  title         String       // e.g. "Initial Intake Assessment"
+  noteType      String       // e.g. "Intake Session"
+  program       String?      // e.g. "CBT Group Therapy"
+  tags          Json         @default("[]") // Tags array as JSON
+  content       String       // Note content markdown/text
+  status        String       // "DRAFT" | "SIGNED" | "LOCKED"
+  
+  // Auditing
+  editedById    String
+  editedBy      User         @relation(fields: [editedById], references: [id], onDelete: Cascade)
+  editSummary   String?      // Optional log explaining the edit
+  
+  // Primary Signature (Transitions DRAFT -> SIGNED)
+  signedById    String?
+  signedBy      User?        @relation("ClinicNoteVersionSigner", fields: [signedById], references: [id])
+  signedAt      DateTime?
+  
+  // Co-signature (Transitions SIGNED -> LOCKED)
+  cosignedById  String?
+  cosignedBy    User?        @relation("ClinicNoteVersionCosigner", fields: [cosignedById], references: [id])
   cosignedAt    DateTime?
   
   createdAt     DateTime     @default(now())

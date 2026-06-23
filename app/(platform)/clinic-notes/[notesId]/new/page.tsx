@@ -3,31 +3,31 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
-
-/* ── Patient Mock Database ──────────────────────────────────────────────── */
-const MOCK_PATIENTS: Record<string, { name: string; dob: string }> = {
-  "FLD-1001": { name: "Abernathy, Sarah", dob: "04/12/1988" },
-  "FLD-1002": { name: "Chen, Wei", dob: "11/03/1995" },
-};
+import { useAuth } from "@/lib/auth/AuthContext";
 
 export default function NewClinicNotePage() {
   const params = useParams();
   const router = useRouter();
-  const notesId = params.notesId as string;
-  const [pinSet, setPinSet] = useState(false);
+  const notesId = params.notesId as string; // folderId
+  const { user } = useAuth();
+
+  // Patient & Program States
+  const [patient, setPatient] = useState<{ name: string; dob: string; id: string } | null>(null);
+  const [programsList, setProgramsList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // PIN Modals State
   const [showSetPinModal, setShowSetPinModal] = useState(false);
   const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
-  const [isSigningNote, setIsSigningNote] = useState(false);
-
-  const patient = MOCK_PATIENTS[notesId] || { name: "Abernathy, Sarah", dob: "04/12/1988" };
 
   // Form states
   const [title, setTitle] = useState("Initial Intake Assessment");
   const [noteType, setNoteType] = useState("Intake Session");
   const [program, setProgram] = useState("None");
-  const [tags, setTags] = useState(["#CBT", "#Anxiety"]);
+  const [tags, setTags] = useState<string[]>(["#CBT", "#Anxiety"]);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagInput, setNewTagInput] = useState("");
+  const [saving, setSaving] = useState(false);
   
   // Editor state
   const [editorText, setEditorText] = useState(
@@ -37,38 +37,122 @@ export default function NewClinicNotePage() {
   );
 
   // Autosave status state
-  const [saveStatus, setSaveStatus] = useState("Saved 2 mins ago");
-  const [saveCounter, setSaveCounter] = useState(120); // 2 minutes
+  const [saveStatus, setSaveStatus] = useState("Draft");
 
-  // Background auto-save simulation
+  // Dictation States (Web Speech API)
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+
+  // Setup speech recognition
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSaveCounter((prev) => {
-        if (prev <= 1) {
-          // Trigger mock "save"
-          setSaveStatus("Saving...");
-          setTimeout(() => {
-            setSaveStatus("Saved just now");
-          }, 800);
-          return 60; // reset to 1 min
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        setIsSpeechSupported(true);
+      }
+    }
   }, []);
 
-  // Format the counter for display
+  // Stop listening when unmounting
   useEffect(() => {
-    if (saveStatus === "Saving...") return;
-    if (saveCounter === 0 || saveCounter < 60) {
-      setSaveStatus("Saved just now");
+    return () => {
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch (e) {}
+      }
+    };
+  }, [recognition]);
+
+  const toggleListening = () => {
+    if (isListening) {
+      if (recognition) {
+        recognition.stop();
+      }
+      setIsListening(false);
     } else {
-      const mins = Math.floor(saveCounter / 60);
-      setSaveStatus(`Saved ${mins} min${mins > 1 ? "s" : ""} ago`);
+      const SpeechRecognition = typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
+      if (!SpeechRecognition) return;
+
+      try {
+        const rec = new SpeechRecognition();
+        rec.continuous = true;
+        rec.interimResults = false;
+        rec.lang = "en-US";
+
+        rec.onresult = (event: any) => {
+          let transcript = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              transcript += event.results[i][0].transcript;
+            }
+          }
+          if (transcript) {
+            setEditorText((prev) => {
+              const trimmed = prev.trim();
+              return trimmed ? `${trimmed} ${transcript.trim()}` : transcript.trim();
+            });
+          }
+        };
+
+        rec.onerror = (event: any) => {
+          if (event.error !== "no-speech" && event.error !== "aborted") {
+            console.warn("Speech recognition warning:", event.error);
+          }
+          setIsListening(false);
+        };
+
+        rec.onend = () => {
+          setIsListening(false);
+        };
+
+        rec.start();
+        setRecognition(rec);
+        setIsListening(true);
+      } catch (err) {
+        console.error("Failed to start speech recognition:", err);
+      }
     }
-  }, [saveCounter, saveStatus]);
+  };
+
+  // Fetch Patient folder and Programs on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        // 1. Fetch folder/patient
+        const folderRes = await fetch(`/api/folders/${notesId}`);
+        if (folderRes.ok) {
+          const folderData = await folderRes.json();
+          setPatient({
+            id: folderData.patient.id,
+            name: `${folderData.patient.lastname}, ${folderData.patient.firstname}`,
+            dob: new Date(folderData.patient.dateOfBirth).toLocaleDateString("en-US", {
+              month: "2-digit",
+              day: "2-digit",
+              year: "numeric",
+            })
+          });
+        }
+
+        // 2. Fetch active programs
+        const programsRes = await fetch("/api/programs");
+        if (programsRes.ok) {
+          const programsData = await programsRes.json();
+          setProgramsList(programsData.programs || []);
+        }
+
+      } catch (error) {
+        console.error("Failed to load initial data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [notesId]);
 
   // Insert Template handler
   const handleInsertTemplate = () => {
@@ -79,58 +163,7 @@ export default function NewClinicNotePage() {
       "\n1. Cognitive Restructuring practice." +
       "\n2. Monitor daily behavioral activation triggers.";
     setEditorText((prev) => prev + template);
-    setSaveStatus("Saving...");
-    setTimeout(() => {
-      setSaveStatus("Saved just now");
-      setSaveCounter(60);
-    }, 600);
   };
-
-  // Dictation States
-  const [isDictating, setIsDictating] = useState(false);
-  const [dictationIndex, setDictationIndex] = useState(0);
-
-  const dictationWords = [
-    "Plan", "and", "Recommendations:", 
-    "Patient", "will", "continue", "with", "weekly", "cognitive", "behavioral", "therapy.", 
-    "Therapist", "to", "introduce", "mindfulness", "practices", "for", "somatic", "tension.", 
-    "Next", "session", "is", "scheduled", "for", "Wednesday."
-  ];
-
-  useEffect(() => {
-    let interval: any;
-    if (isDictating) {
-      setSaveStatus("Saving...");
-      setEditorText((prev) => prev + "\n\n");
-
-      let currentIdx = 0;
-      interval = setInterval(() => {
-        if (currentIdx < dictationWords.length) {
-          const nextWord = dictationWords[currentIdx];
-          setEditorText((prev) => prev + nextWord + " ");
-          currentIdx++;
-          setDictationIndex(currentIdx);
-
-          const textarea = document.querySelector("textarea");
-          if (textarea) {
-            textarea.scrollTop = textarea.scrollHeight;
-          }
-        } else {
-          setIsDictating(false);
-          setSaveStatus("Saved just now");
-          setSaveCounter(60);
-          clearInterval(interval);
-        }
-      }, 400);
-    } else {
-      if (dictationIndex > 0) {
-        setSaveStatus("Saved just now");
-        setSaveCounter(60);
-      }
-    }
-
-    return () => clearInterval(interval);
-  }, [isDictating]);
 
   // Add Tag handler
   const handleAddTagSubmit = (e: React.FormEvent) => {
@@ -160,51 +193,61 @@ export default function NewClinicNotePage() {
   };
 
   // Save/Sign Note handler
-  const handleSaveNote = (isLocked: boolean) => {
+  const handleSaveNoteClick = (isLocked: boolean) => {
+    if (!editorText.trim()) {
+      alert("Note content cannot be empty.");
+      return;
+    }
+
     if (isLocked) {
-      // Only require PIN for signing
-      setIsSigningNote(true);
-      if (!pinSet) {
+      if (!user?.hasPin) {
         setShowSetPinModal(true);
       } else {
         setShowVerifyPinModal(true);
       }
     } else {
-      // Save draft without PIN
       completeSaveNote(false);
     }
   };
 
-  const completeSaveNote = (isLocked: boolean) => {
-    const formattedDate = new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "2-digit",
-      year: "numeric",
-    });
+  const completeSaveNote = async (isLocked: boolean) => {
+    try {
+      setSaving(true);
+      const res = await fetch("/api/clinic-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          folderId: notesId,
+          title: title || "Untitled Clinical Note",
+          noteType,
+          program,
+          tags,
+          content: editorText,
+          status: isLocked ? "SIGNED" : "DRAFT"
+        })
+      });
 
-    const newNoteObject = {
-      name: title || "Untitled Clinical Note",
-      date: formattedDate,
-      type: noteType,
-      isDraft: !isLocked,
-    };
-
-    if (typeof window !== "undefined") {
-      const defaultDocs = [
-        { name: "Progress Note — Session 4", date: "Mar 02, 2024", type: "Progress Note" },
-        { name: "Progress Note — Session 5", date: "Mar 10, 2024", type: "Progress Note" },
-        { name: "Intake Assessment", date: "Jan 15, 2024", type: "Intake Session" },
-      ];
-      const saved = localStorage.getItem(`notes_${notesId}`);
-      const currentNotes = saved ? JSON.parse(saved) : defaultDocs;
-
-      // Add to list (unshift to place it at the top)
-      const updatedNotes = [newNoteObject, ...currentNotes];
-      localStorage.setItem(`notes_${notesId}`, JSON.stringify(updatedNotes));
+      if (res.ok) {
+        router.push(`/clinic-notes/${notesId}`);
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to save clinic note.");
+      }
+    } catch (err) {
+      console.error("Save note error:", err);
+      alert("An error occurred while saving the note.");
+    } finally {
+      setSaving(false);
     }
-
-    router.push(`/clinic-notes/${notesId}`);
   };
+
+  if (loading) {
+    return <div style={{ padding: 24, fontFamily: "var(--font-sans, Inter, system-ui, sans-serif)" }}>Loading page...</div>;
+  }
+
+  if (!patient) {
+    return <div style={{ padding: 24, fontFamily: "var(--font-sans, Inter, system-ui, sans-serif)" }}>Folder or Patient record not found.</div>;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, fontFamily: "var(--font-sans, Inter, system-ui, sans-serif)", color: "#1d1d1f" }}>
@@ -319,10 +362,11 @@ export default function NewClinicNotePage() {
                   }}
                 >
                   <option value="None">None</option>
-                  <option value="CBT Group Therapy">CBT Group Therapy</option>
-                  <option value="Medication Management">Medication Management</option>
-                  <option value="Individual Counseling">Individual Counseling</option>
-                  <option value="Intensive Outpatient Program (IOP)">Intensive Outpatient Program (IOP)</option>
+                  {programsList.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name} ({p.type})
+                    </option>
+                  ))}
                 </select>
                 <span className="material-symbols-outlined" style={{
                   position: "absolute",
@@ -444,6 +488,7 @@ export default function NewClinicNotePage() {
               {["format_bold", "format_italic", "format_underlined", "format_strikethrough"].map((tool) => (
                 <button
                   key={tool}
+                  type="button"
                   style={{
                     padding: "6px 10px",
                     border: "none",
@@ -464,6 +509,7 @@ export default function NewClinicNotePage() {
               {["format_list_bulleted", "format_list_numbered"].map((tool) => (
                 <button
                   key={tool}
+                  type="button"
                   style={{
                     padding: "6px 10px",
                     border: "none",
@@ -484,6 +530,7 @@ export default function NewClinicNotePage() {
             {/* Template Button */}
             <button
               onClick={handleInsertTemplate}
+              type="button"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -502,40 +549,43 @@ export default function NewClinicNotePage() {
               Insert Clinical Template
             </button>
 
-            {/* Recording Button (Speech-to-Text) */}
-            <button
-              onClick={() => setIsDictating(!isDictating)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 12px",
-                borderRadius: 6,
-                border: isDictating ? "1px solid #b3261e" : "1px solid #d2d2d7",
-                backgroundColor: isDictating ? "#fce8e8" : "#ffffff",
-                fontSize: 12,
-                fontWeight: 600,
-                color: isDictating ? "#b3261e" : "#1d1d1f",
-                cursor: "pointer",
-                transition: "all 0.15s ease-in-out",
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: 16, color: isDictating ? "#b3261e" : "#1d1d1f" }}>
-                {isDictating ? "mic" : "mic_none"}
-              </span>
-              {isDictating ? "Dictating..." : "Dictate Note"}
-              {isDictating && (
-                <span style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  backgroundColor: "#b3261e",
-                  display: "inline-block",
-                  marginLeft: 2,
-                  animation: "pulse 1.2s infinite",
-                }} />
-              )}
-            </button>
+            {/* Speech-to-Text Button */}
+            {isSpeechSupported && (
+              <button
+                onClick={toggleListening}
+                type="button"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: isListening ? "1px solid #b3261e" : "1px solid #d2d2d7",
+                  backgroundColor: isListening ? "#fce8e8" : "#ffffff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: isListening ? "#b3261e" : "#1d1d1f",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease-in-out",
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16, color: isListening ? "#b3261e" : "#1d1d1f" }}>
+                  {isListening ? "mic" : "mic_none"}
+                </span>
+                {isListening ? "Dictating..." : "Dictate Note"}
+                {isListening && (
+                  <span style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: "#b3261e",
+                    display: "inline-block",
+                    marginLeft: 2,
+                    animation: "pulse 1.2s infinite",
+                  }} />
+                )}
+              </button>
+            )}
 
             <style>{`
               @keyframes pulse {
@@ -549,7 +599,7 @@ export default function NewClinicNotePage() {
 
           {/* Status */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#86868b" }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 16, color: "#137333" }}>cloud_done</span>
+            <span className="material-symbols-outlined" style={{ fontSize: 16, color: "var(--color-primary)" }}>info</span>
             {saveStatus}
           </div>
 
@@ -561,8 +611,6 @@ export default function NewClinicNotePage() {
             value={editorText}
             onChange={(e) => {
               setEditorText(e.target.value);
-              setSaveStatus("Saving...");
-              setSaveCounter(60);
             }}
             style={{
               width: "100%",
@@ -607,7 +655,8 @@ export default function NewClinicNotePage() {
         <div style={{ display: "flex", gap: 12 }}>
           
           <button
-            onClick={() => handleSaveNote(false)}
+            onClick={() => handleSaveNoteClick(false)}
+            disabled={saving}
             style={{
               padding: "10px 20px",
               borderRadius: 8,
@@ -618,6 +667,7 @@ export default function NewClinicNotePage() {
               color: "#1d1d1f",
               cursor: "pointer",
               transition: "background 0.12s",
+              opacity: saving ? 0.7 : 1
             }}
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#f5f5f7"}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#ffffff"}
@@ -626,7 +676,8 @@ export default function NewClinicNotePage() {
           </button>
 
           <button
-            onClick={() => handleSaveNote(true)}
+            onClick={() => handleSaveNoteClick(true)}
+            disabled={saving}
             style={{
               display: "flex",
               alignItems: "center",
@@ -640,12 +691,13 @@ export default function NewClinicNotePage() {
               color: "#ffffff",
               cursor: "pointer",
               transition: "opacity 0.12s",
+              opacity: saving ? 0.7 : 1
             }}
             onMouseOver={(e) => e.currentTarget.style.opacity = "0.9"}
             onMouseOut={(e) => e.currentTarget.style.opacity = "1"}
           >
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>lock</span>
-            Sign & Save Note
+            {saving ? "Signing..." : "Sign & Save Note"}
           </button>
 
         </div>
@@ -655,16 +707,19 @@ export default function NewClinicNotePage() {
       {/* PIN Modals */}
       {showSetPinModal && (
         <SetPinModal
-          onClose={() => {
+          onClose={() => setShowSetPinModal(false)}
+          onSuccess={() => {
             setShowSetPinModal(false);
-            setPinSet(true);
+            // Refresh user session state so hasPin changes to true
+            if (user) user.hasPin = true;
             completeSaveNote(true);
           }}
         />
       )}
       {showVerifyPinModal && (
         <VerifyPinModal
-          onClose={() => {
+          onClose={() => setShowVerifyPinModal(false)}
+          onSuccess={() => {
             setShowVerifyPinModal(false);
             completeSaveNote(true);
           }}
