@@ -47,6 +47,26 @@ interface ClinicNoteDetailModalProps {
   onUpdate?: () => void;
 }
 
+async function getResponseError(res: Response, defaultMsg: string): Promise<string> {
+  const status = res.status;
+  const statusText = res.statusText;
+  let bodyText = "";
+  try {
+    bodyText = await res.text();
+    try {
+      const parsed = JSON.parse(bodyText);
+      if (parsed && parsed.message) {
+        return `${parsed.message} (Status: ${status})`;
+      }
+    } catch (_) {}
+  } catch (_) {}
+
+  const cleanBody = bodyText 
+    ? bodyText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150) 
+    : "";
+  return `${defaultMsg} (Status: ${status} ${statusText})${cleanBody ? ` | Details: ${cleanBody}` : ""}`;
+}
+
 export default function ClinicNoteDetailModal({
   isOpen,
   onClose,
@@ -375,11 +395,7 @@ export default function ClinicNoteDetailModal({
           method: "POST",
         });
         if (!transcribeRes.ok) {
-          let errMsg = "Transcription failed.";
-          try {
-            const err = await transcribeRes.json();
-            errMsg = err.message || errMsg;
-          } catch (_) { }
+          const errMsg = await getResponseError(transcribeRes, "Transcription failed.");
           throw new Error(errMsg);
         }
         const transcribeData = await transcribeRes.json().catch(() => ({}));
@@ -399,11 +415,7 @@ export default function ClinicNoteDetailModal({
       });
 
       if (!generateRes.ok) {
-        let errMsg = "Note generation failed clinic notes.";
-        try {
-          const err = await generateRes.json();
-          errMsg = err.message || errMsg;
-        } catch (_) { }
+        const errMsg = await getResponseError(generateRes, "Note generation failed.");
         throw new Error(errMsg);
       }
 
