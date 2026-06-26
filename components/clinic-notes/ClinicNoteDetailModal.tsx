@@ -375,11 +375,18 @@ export default function ClinicNoteDetailModal({
           method: "POST",
         });
         if (!transcribeRes.ok) {
-          const err = await transcribeRes.json();
-          throw new Error(err.message || "Transcription failed.");
+          let errMsg = "Transcription failed.";
+          try {
+            const err = await transcribeRes.json();
+            errMsg = err.message || errMsg;
+          } catch (_) {}
+          throw new Error(errMsg);
         }
-        const transcribeData = await transcribeRes.json();
+        const transcribeData = await transcribeRes.json().catch(() => ({}));
         transcript = transcribeData.transcript;
+        if (!transcript) {
+          throw new Error("No transcript was returned from the server.");
+        }
         setIsTranscribing(false);
         if (onUpdate) onUpdate();
       }
@@ -392,11 +399,18 @@ export default function ClinicNoteDetailModal({
       });
 
       if (!generateRes.ok) {
-        const err = await generateRes.json();
-        throw new Error(err.message || "Note generation failed.");
+        let errMsg = "Note generation failed.";
+        try {
+          const err = await generateRes.json();
+          errMsg = err.message || errMsg;
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
-      const generateData = await generateRes.json();
+      const generateData = await generateRes.json().catch(() => ({}));
+      if (!generateData.note) {
+        throw new Error("No note content was returned from the server.");
+      }
 
       if (content.trim()) {
         const confirmReplace = window.confirm("Do you want to replace the current editor content with the AI-generated note?");

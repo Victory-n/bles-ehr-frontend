@@ -5,6 +5,8 @@ import { getSupabase } from "@/lib/supabase";
 import { storageService } from "@/lib/storage";
 import { GoogleGenAI } from "@google/genai";
 
+export const maxDuration = 60; // 60 seconds timeout for AWS Lambda
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

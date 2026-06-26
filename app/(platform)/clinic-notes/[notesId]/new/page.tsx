@@ -28,12 +28,10 @@ export default function NewClinicNotePage() {
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagInput, setNewTagInput] = useState("");
   const [saving, setSaving] = useState(false);
-  
+
   // Editor state
   const [editorText, setEditorText] = useState(
-    "Chief Complaint: Patient presents with increased feelings of general anxiety over the past 3 weeks.\n\n" +
-    "Subjective: Patient reports difficulty sleeping, racing thoughts, and physical symptoms of tension in the neck and shoulders. Rates current anxiety level at 7/10.\n\n" +
-    "Objective: Patient appears restless, frequently shifting in seat. Speech is slightly accelerated but coherent and goal-directed. Affect is anxious but congruent."
+    ""
   );
 
   // Autosave status state
@@ -75,7 +73,7 @@ export default function NewClinicNotePage() {
       if (recognition) {
         try {
           recognition.stop();
-        } catch (e) {}
+        } catch (e) { }
       }
     };
   }, [recognition]);
@@ -312,7 +310,7 @@ export default function NewClinicNotePage() {
       );
       const availableRecs = recordingsFolder?.documents || [];
       const activeRec = availableRecs.find((r: any) => r.id === selectedRecordingId);
-      
+
       let transcript = activeRec?.transcript;
 
       // Step 1: Transcribe audio if needed
@@ -322,11 +320,18 @@ export default function NewClinicNotePage() {
           method: "POST",
         });
         if (!transcribeRes.ok) {
-          const err = await transcribeRes.json();
-          throw new Error(err.message || "Transcription failed.");
+          let errMsg = "Transcription failed.";
+          try {
+            const err = await transcribeRes.json();
+            errMsg = err.message || errMsg;
+          } catch (_) { }
+          throw new Error(errMsg);
         }
-        const transcribeData = await transcribeRes.json();
+        const transcribeData = await transcribeRes.json().catch(() => ({}));
         transcript = transcribeData.transcript;
+        if (!transcript) {
+          throw new Error("No transcript was returned from the server.");
+        }
         setIsTranscribing(false);
         if (patient?.id) await fetchPatientDetails(patient.id);
       }
@@ -339,11 +344,18 @@ export default function NewClinicNotePage() {
       });
 
       if (!generateRes.ok) {
-        const err = await generateRes.json();
-        throw new Error(err.message || "Note generation failed.");
+        let errMsg = "Note generation failed.";
+        try {
+          const err = await generateRes.json();
+          errMsg = err.message || errMsg;
+        } catch (_) { }
+        throw new Error(errMsg);
       }
 
-      const generateData = await generateRes.json();
+      const generateData = await generateRes.json().catch(() => ({}));
+      if (!generateData.note) {
+        throw new Error("No note content was returned from the server.");
+      }
 
       if (editorText.trim()) {
         const confirmReplace = window.confirm("Do you want to replace the current editor content with the AI-generated note?");
@@ -463,7 +475,7 @@ export default function NewClinicNotePage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, fontFamily: "var(--font-sans, Inter, system-ui, sans-serif)", color: "#1d1d1f" }}>
-      
+
       {/* ── Breadcrumb ──────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--color-on-surface-variant)" }}>
         <span style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => router.push("/clinic-notes")}>Patients</span>
@@ -486,7 +498,7 @@ export default function NewClinicNotePage() {
         gap: 20,
       }}>
         <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
-          
+
           {/* Note Title Input */}
           <div style={{ flex: 1.2, minWidth: 300 }}>
             <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--color-on-surface-variant, #86868b)", display: "block", marginBottom: 6 }}>NOTE TITLE</label>
@@ -511,7 +523,7 @@ export default function NewClinicNotePage() {
 
           {/* Note Type & Programs Group (side-by-side on the right) */}
           <div style={{ flex: 2, minWidth: 320, display: "flex", gap: 16 }}>
-            
+
             {/* Note Type Select */}
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--color-on-surface-variant, #86868b)", display: "block", marginBottom: 6 }}>NOTE TYPE</label>
@@ -602,7 +614,7 @@ export default function NewClinicNotePage() {
         <div>
           <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--color-on-surface-variant, #86868b)", display: "block", marginBottom: 8 }}>TAGS</label>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            
+
             {tags.map((tag) => (
               <span key={tag} style={{
                 display: "inline-flex",
@@ -679,7 +691,7 @@ export default function NewClinicNotePage() {
         display: "flex",
         flexDirection: "column",
       }}>
-        
+
         {/* Editor Toolbar */}
         <div style={{
           backgroundColor: "#f5f6f8",
@@ -691,10 +703,10 @@ export default function NewClinicNotePage() {
           flexWrap: "wrap",
           gap: 12,
         }}>
-          
+
           {/* Format Tools */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            
+
             {/* Style Group */}
             <div style={{ display: "flex", borderRadius: 6, border: "1px solid #d2d2d7", backgroundColor: "#ffffff", overflow: "hidden" }}>
               {["format_bold", "format_italic", "format_underlined", "format_strikethrough"].map((tool) => (
@@ -1027,7 +1039,7 @@ export default function NewClinicNotePage() {
         justifyContent: "space-between",
         marginTop: 8,
       }}>
-        
+
         <button
           onClick={handleDiscard}
           style={{
@@ -1043,7 +1055,7 @@ export default function NewClinicNotePage() {
         </button>
 
         <div style={{ display: "flex", gap: 12 }}>
-          
+
           <button
             onClick={() => handleSaveNoteClick(false)}
             disabled={saving}
