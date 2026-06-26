@@ -51,6 +51,41 @@ async function main() {
   console.log(`   Email: ${mia.email}`);
   console.log(`   Password: Admin1234`);
   console.log(`   PIN: 123456`);
+
+  // Seed default clinical templates
+  const templates = [
+    {
+      name: "SOAP Note",
+      description: "Subjective, Objective, Assessment, Plan",
+      structure: `# SOAP Note\n\n### Subjective (S)\n- [Insert subjective report here]\n\n### Objective (O)\n- [Insert clinical observations here]\n\n### Assessment (A)\n- [Insert evaluation & clinical impression here]\n\n### Plan (P)\n- [Insert follow-up actions here]`,
+      prompt: "Draft a professional clinical SOAP note. Group statements describing the patient's thoughts, feelings, and self-reported issues under Subjective. Put clinical observations, behavior, and status exams under Objective. Provide clinical reasoning and diagnosis evaluation under Assessment. Outline future treatments and interventions under Plan."
+    },
+    {
+      name: "BIRP Note",
+      description: "Behavior, Intervention, Response, Plan",
+      structure: `# BIRP Note\n\n### Behavior (B)\n- [Insert behavior description here]\n\n### Intervention (I)\n- [Insert clinician interventions here]\n\n### Response (R)\n- [Insert patient response here]\n\n### Plan (P)\n- [Insert clinical plan here]`,
+      prompt: "Draft a professional clinical BIRP note. Under Behavior, document how the patient behaved and presented. Under Intervention, specify what clinical techniques or guidance was given. Under Response, explain the patient's reaction to those techniques. Under Plan, define the treatment path and schedule."
+    },
+    {
+      name: "DAP Note",
+      description: "Data, Assessment, Plan",
+      structure: `# DAP Note\n\n### Data (D)\n- [Insert session data and observations here]\n\n### Assessment (A)\n- [Insert progress evaluation here]\n\n### Plan (P)\n- [Insert next steps here]`,
+      prompt: "Draft a professional clinical DAP note. Under Data, compile both subjective client statements and objective clinical observations from the session. Under Assessment, analyze the data to evaluate progress and diagnosis alignment. Under Plan, document follow-ups, homework, and appointment targets."
+    }
+  ];
+
+  for (const t of templates) {
+    await prisma.clinicalTemplate.upsert({
+      where: { name: t.name },
+      update: {
+        description: t.description,
+        structure: t.structure,
+        prompt: t.prompt
+      },
+      create: t
+    });
+  }
+  console.log("✅ Seeded Clinical Templates");
 }
 
 main()

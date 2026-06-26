@@ -84,6 +84,44 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         },
         orderBy: { sortOrder: "asc" },
       });
+    } else {
+      // Self-healing: if folders exist but "Session Recordings" child folder is missing, create it
+      const hasRecordings = folders.some((f) => f.name === "Session Recordings" && f.type === "CHILD");
+      if (!hasRecordings) {
+        const parentFolder = folders.find((f) => f.type === "PARENT");
+        if (parentFolder) {
+          const childRandomNum = Math.floor(10000 + Math.random() * 90000);
+          await prisma.folder.create({
+            data: {
+              folderId: `FLD-${childRandomNum}`,
+              name: "Session Recordings",
+              type: "CHILD",
+              patientId: patient.id,
+              parentId: parentFolder.id,
+              sortOrder: 5,
+            },
+          });
+          // Refetch folders
+          folders = await prisma.folder.findMany({
+            where: { patientId: patient.id, deletedAt: null },
+            include: {
+              documents: {
+                where: { deletedAt: null },
+                include: {
+                  uploadedBy: {
+                    select: {
+                      firstname: true,
+                      lastname: true,
+                    },
+                  },
+                },
+                orderBy: { createdAt: "desc" },
+              },
+            },
+            orderBy: { sortOrder: "asc" },
+          });
+        }
+      }
     }
 
     return NextResponse.json({

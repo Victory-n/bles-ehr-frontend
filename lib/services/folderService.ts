@@ -20,6 +20,7 @@ export const folderService = {
       { name: "Billing Documents", type: "CHILD", sortOrder: 2 },
       { name: "Compliance/Consent Forms", type: "CHILD", sortOrder: 3 },
       { name: "Clinic Notes", type: "CHILD", sortOrder: 4 },
+      { name: "Session Recordings", type: "CHILD", sortOrder: 5 },
     ];
 
     const createdChildFolders = await Promise.all(

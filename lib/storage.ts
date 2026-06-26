@@ -15,6 +15,11 @@ const BUCKET_CONFIG = {
     "image/png",
     "image/jpeg",
     "text/plain",
+    "audio/webm",
+    "audio/mpeg",
+    "audio/wav",
+    "audio/mp4",
+    "audio/x-m4a",
   ],
 };
 
@@ -31,10 +36,14 @@ export const storageService = {
 
     if (!existingBuckets.has(PATIENT_FOLDERS_BUCKET)) {
       await supabase.storage.createBucket(PATIENT_FOLDERS_BUCKET, BUCKET_CONFIG);
+    } else {
+      await supabase.storage.updateBucket(PATIENT_FOLDERS_BUCKET, BUCKET_CONFIG);
     }
 
     if (!existingBuckets.has(STAFF_FOLDERS_BUCKET)) {
       await supabase.storage.createBucket(STAFF_FOLDERS_BUCKET, BUCKET_CONFIG);
+    } else {
+      await supabase.storage.updateBucket(STAFF_FOLDERS_BUCKET, BUCKET_CONFIG);
     }
   },
 
@@ -74,6 +83,7 @@ export const storageService = {
       `${basePath}/billing`,
       `${basePath}/compliance`,
       `${basePath}/clinic-notes`,
+      `${basePath}/session-recordings`,
     ];
 
     for (const folder of folders) {
@@ -108,6 +118,7 @@ export const storageService = {
       BILLING: "billing",
       COMPLIANCE: "compliance",
       CLINIC_NOTES: "clinic-notes",
+      SESSION_RECORDINGS: "session-recordings",
     };
 
     return {

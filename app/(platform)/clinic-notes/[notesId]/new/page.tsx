@@ -12,7 +12,7 @@ export default function NewClinicNotePage() {
   const { user } = useAuth();
 
   // Patient & Program States
-  const [patient, setPatient] = useState<{ name: string; dob: string; id: string } | null>(null);
+  const [patient, setPatient] = useState<any | null>(null);
   const [programsList, setProgramsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,6 +43,21 @@ export default function NewClinicNotePage() {
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
   const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+
+  // Audio Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingInterval, setRecordingInterval] = useState<any>(null);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+
+  // AI & Templates State
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedRecordingId, setSelectedRecordingId] = useState("");
 
   // Setup speech recognition
   useEffect(() => {
@@ -116,6 +131,54 @@ export default function NewClinicNotePage() {
     }
   };
 
+  // Clean up recording timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingInterval) {
+        clearInterval(recordingInterval);
+      }
+    };
+  }, [recordingInterval]);
+
+  // Fetch AI Templates when page loads
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch("/api/templates");
+        if (res.ok) {
+          const data = await res.json();
+          setTemplates(data.templates || []);
+          if (data.templates.length > 0) {
+            setSelectedTemplateId(data.templates[0].id);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch templates", e);
+      }
+    };
+    fetchTemplates();
+  }, []);
+
+  const fetchPatientDetails = async (patientId: string) => {
+    try {
+      const res = await fetch(`/api/patients/${patientId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPatient({
+          ...data.patient,
+          name: `${data.patient.lastname}, ${data.patient.firstname}`,
+          dob: new Date(data.patient.dateOfBirth).toLocaleDateString("en-US", {
+            month: "2-digit",
+            day: "2-digit",
+            year: "numeric",
+          })
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch patient details:", error);
+    }
+  };
+
   // Fetch Patient folder and Programs on mount
   useEffect(() => {
     const fetchData = async () => {
@@ -126,15 +189,8 @@ export default function NewClinicNotePage() {
         const folderRes = await fetch(`/api/folders/${notesId}`);
         if (folderRes.ok) {
           const folderData = await folderRes.json();
-          setPatient({
-            id: folderData.patient.id,
-            name: `${folderData.patient.lastname}, ${folderData.patient.firstname}`,
-            dob: new Date(folderData.patient.dateOfBirth).toLocaleDateString("en-US", {
-              month: "2-digit",
-              day: "2-digit",
-              year: "numeric",
-            })
-          });
+          // Fetch full patient details with folders
+          await fetchPatientDetails(folderData.patient.id);
         }
 
         // 2. Fetch active programs
@@ -154,16 +210,172 @@ export default function NewClinicNotePage() {
     fetchData();
   }, [notesId]);
 
-  // Insert Template handler
-  const handleInsertTemplate = () => {
-    const template = 
-      "\n\n--- CLINICAL TEMPLATE ---" +
-      "\nAssessment / Diagnosis Refinement: Patient exhibits symptoms consistent with anxiety/mood triggers." +
-      "\nPlan & Interventions:" +
-      "\n1. Cognitive Restructuring practice." +
-      "\n2. Monitor daily behavioral activation triggers.";
-    setEditorText((prev) => prev + template);
+  // Audio Recording Handlers
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+        await handleAudioUpload(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      setAudioChunks([]);
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      const interval = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+      setRecordingInterval(interval);
+    } catch (err) {
+      console.error("Failed to start recording:", err);
+      alert("Could not access microphone. Please check permissions.");
+    }
   };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      if (recordingInterval) {
+        clearInterval(recordingInterval);
+        setRecordingInterval(null);
+      }
+    }
+  };
+
+  const handleAudioUpload = async (audioBlob: Blob) => {
+    const recordingsFolder = patient?.folders?.find(
+      (f: any) => f.name.toLowerCase().includes("session") || f.name.toLowerCase().includes("recording")
+    );
+    if (!recordingsFolder) {
+      alert("Error: 'Session Recordings' folder not found. Please refresh.");
+      return;
+    }
+
+    try {
+      setIsUploadingAudio(true);
+      const file = new File([audioBlob], `recording-${Date.now()}.webm`, { type: "audio/webm" });
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("documentName", `Live Session - ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+
+      const res = await fetch(`/api/folders/${recordingsFolder.folderId}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        if (patient?.id) await fetchPatientDetails(patient.id); // Refresh patient folders
+        alert("Session audio recorded and uploaded successfully!");
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to upload recording.");
+      }
+    } catch (e) {
+      console.error("Audio upload error:", e);
+      alert("Failed to upload audio recording.");
+    } finally {
+      setIsUploadingAudio(false);
+    }
+  };
+
+  // AI Generation Handler
+  const handleAIGenerate = async () => {
+    if (!selectedRecordingId) {
+      alert("Please record or select an audio recording first.");
+      return;
+    }
+    if (!selectedTemplateId) {
+      alert("Please select a clinical template.");
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+
+      // Extract current recordings documents list
+      const recordingsFolder = patient?.folders?.find(
+        (f: any) => f.name.toLowerCase().includes("session") || f.name.toLowerCase().includes("recording")
+      );
+      const availableRecs = recordingsFolder?.documents || [];
+      const activeRec = availableRecs.find((r: any) => r.id === selectedRecordingId);
+      
+      let transcript = activeRec?.transcript;
+
+      // Step 1: Transcribe audio if needed
+      if (!transcript) {
+        setIsTranscribing(true);
+        const transcribeRes = await fetch(`/api/documents/${selectedRecordingId}/transcribe`, {
+          method: "POST",
+        });
+        if (!transcribeRes.ok) {
+          const err = await transcribeRes.json();
+          throw new Error(err.message || "Transcription failed.");
+        }
+        const transcribeData = await transcribeRes.json();
+        transcript = transcribeData.transcript;
+        setIsTranscribing(false);
+        if (patient?.id) await fetchPatientDetails(patient.id);
+      }
+
+      // Step 2: Generate clinical note
+      const generateRes = await fetch(`/api/documents/${selectedRecordingId}/generate-note`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: selectedTemplateId }),
+      });
+
+      if (!generateRes.ok) {
+        const err = await generateRes.json();
+        throw new Error(err.message || "Note generation failed.");
+      }
+
+      const generateData = await generateRes.json();
+
+      if (editorText.trim()) {
+        const confirmReplace = window.confirm("Do you want to replace the current editor content with the AI-generated note?");
+        if (confirmReplace) {
+          setEditorText(generateData.note);
+        }
+      } else {
+        setEditorText(generateData.note);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "An error occurred during note generation.");
+    } finally {
+      setIsGenerating(false);
+      setIsTranscribing(false);
+    }
+  };
+
+  // Helper to find recordings in current patient folders
+  const recordingsFolder = patient?.folders?.find(
+    (f: any) => f.name.toLowerCase().includes("session") || f.name.toLowerCase().includes("recording")
+  );
+  const availableRecordings = recordingsFolder?.documents || [];
+
+  // Auto-select latest recording when available
+  useEffect(() => {
+    if (availableRecordings.length > 0 && !selectedRecordingId) {
+      setSelectedRecordingId(availableRecordings[0].id);
+    }
+  }, [availableRecordings, selectedRecordingId]);
+
+
 
   // Add Tag handler
   const handleAddTagSubmit = (e: React.FormEvent) => {
@@ -527,27 +739,36 @@ export default function NewClinicNotePage() {
 
             <div style={{ width: 1, height: 24, backgroundColor: "#d2d2d7" }} />
 
-            {/* Template Button */}
-            <button
-              onClick={handleInsertTemplate}
-              type="button"
+            {/* Template Dropdown */}
+            <select
+              onChange={(e) => {
+                const t = templates.find((temp: any) => temp.id === e.target.value);
+                if (t) {
+                  setEditorText((prev) => prev + (prev.trim() ? "\n\n" : "") + t.structure);
+                }
+                e.target.value = "";
+              }}
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                gap: 6,
-                padding: "6px 12px",
+                padding: "6px 10px",
+                fontSize: 12,
                 borderRadius: 6,
                 border: "1px solid #d2d2d7",
                 backgroundColor: "#ffffff",
-                fontSize: 12,
-                fontWeight: 600,
                 color: "#1d1d1f",
+                fontWeight: 600,
+                outline: "none",
                 cursor: "pointer",
               }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>feed</span>
-              Insert Clinical Template
-            </button>
+              <option value="">Insert Template...</option>
+              {templates.map((t: any) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
 
             {/* Speech-to-Text Button */}
             {isSpeechSupported && (
@@ -603,6 +824,175 @@ export default function NewClinicNotePage() {
             {saveStatus}
           </div>
 
+        </div>
+
+        {/* AI Clinical Assistant Card */}
+        <div style={{
+          background: "linear-gradient(135deg, #f3e5f5 0%, #e8eaf6 100%)",
+          border: "1px solid #d1c4e9",
+          borderRadius: 12,
+          padding: "18px 24px",
+          margin: "24px 32px 0 32px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          boxShadow: "0 2px 8px rgba(103, 58, 183, 0.08)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="material-symbols-outlined" style={{ color: "#673ab7", fontSize: 22 }}>psychology</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#4a148c", letterSpacing: "0.03em" }}>AI CLINICAL ASSISTANT</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            {/* Left: Audio Recorder */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, borderRight: "1px solid #d1c4e9", paddingRight: 16 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#512da8" }}>1. SESSION RECORDING</span>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {isRecording ? (
+                  <button
+                    onClick={stopRecording}
+                    type="button"
+                    className="mic-active"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 14px",
+                      borderRadius: 8,
+                      border: "none",
+                      backgroundColor: "#ea4335",
+                      color: "#ffffff",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>stop</span>
+                    Stop & Upload ({Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, '0')})
+                  </button>
+                ) : (
+                  <button
+                    onClick={startRecording}
+                    type="button"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 14px",
+                      borderRadius: 8,
+                      border: "1px solid #673ab7",
+                      backgroundColor: "#ffffff",
+                      color: "#673ab7",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "background 0.12s",
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#f3e5f5"; }}
+                    onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#ffffff"; }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>mic</span>
+                    Record Live Audio
+                  </button>
+                )}
+
+                {isUploadingAudio && (
+                  <span style={{ fontSize: 11, color: "#673ab7", display: "flex", alignItems: "center", gap: 4 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14, animation: "spin 1s linear infinite" }}>progress_activity</span>
+                    Uploading...
+                  </span>
+                )}
+              </div>
+
+              {/* Select existing recording */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                <label style={{ fontSize: 10, fontWeight: 600, color: "#512da8" }}>OR SELECT RECORDING</label>
+                <select
+                  value={selectedRecordingId}
+                  onChange={(e) => setSelectedRecordingId(e.target.value)}
+                  style={{
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: "1px solid #d1c4e9",
+                    outline: "none",
+                    backgroundColor: "#ffffff",
+                  }}
+                >
+                  <option value="">-- Choose Recording --</option>
+                  {availableRecordings.map((r: any) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} {r.transcript ? "✓" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Right: AI Note Generator */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#512da8" }}>2. TEMPLATE & GENERATION</span>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={{ fontSize: 10, fontWeight: 600, color: "#512da8" }}>SELECT TEMPLATE</label>
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  style={{
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: "1px solid #d1c4e9",
+                    outline: "none",
+                    backgroundColor: "#ffffff",
+                  }}
+                >
+                  <option value="">-- Choose Template --</option>
+                  {templates.map((t: any) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={handleAIGenerate}
+                disabled={isGenerating || !selectedRecordingId || !selectedTemplateId}
+                type="button"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "none",
+                  backgroundColor: (!selectedRecordingId || !selectedTemplateId) ? "#d1c4e9" : "#673ab7",
+                  color: "#ffffff",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: (!selectedRecordingId || !selectedTemplateId) ? "not-allowed" : "pointer",
+                  boxShadow: "0 2px 4px rgba(103, 58, 183, 0.2)",
+                  marginTop: "auto",
+                  opacity: isGenerating ? 0.8 : 1,
+                }}
+              >
+                {isGenerating ? (
+                  <>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, animation: "spin 1s linear infinite" }}>progress_activity</span>
+                    {isTranscribing ? "Transcribing Audio..." : "Generating Note..."}
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>magic_button</span>
+                    Generate Note from AI
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Text Editor Area */}

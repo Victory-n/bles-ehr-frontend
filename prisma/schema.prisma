@@ -16,6 +16,7 @@ enum DocumentType {
   BILLING
   COMPLIANCE
   CLINIC_NOTES
+  SESSION_RECORDINGS
 }
 
 enum FileType {
@@ -29,6 +30,7 @@ enum FileType {
   JPEG
   TXT
   OTHER
+  AUDIO
 }
 
 enum SignatureStatus {
@@ -162,6 +164,7 @@ model Session {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   note             SessionNote?
+  recordings       Document[]
 
   @@index([programId])
   @@index([patientProgramId])
@@ -221,6 +224,9 @@ model Document {
 
   // New Relation
   clinicNote            ClinicNote?
+  sessionId             String?
+  session               Session?      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  transcript            String?       // Text transcript of the audio recording
 
   @@index([patientId])
   @@index([folderId])
@@ -318,4 +324,14 @@ model ClinicNoteVersion {
   createdAt     DateTime     @default(now())
 
   @@unique([noteId, version])
+}
+
+model ClinicalTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  structure   String   @db.Text
+  prompt      String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

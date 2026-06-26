@@ -56,6 +56,11 @@ function getFileType(mimeType: string, fileName: string): FileType {
     case 'jpg': return FileType.JPG;
     case 'jpeg': return FileType.JPEG;
     case 'txt': return FileType.TXT;
+    case 'webm':
+    case 'mp3':
+    case 'wav':
+    case 'm4a':
+    case 'mp4': return FileType.AUDIO;
     default: return FileType.OTHER;
   }
 }
@@ -65,6 +70,7 @@ function getDocumentTypeFromFolder(folderName: string): DocumentType {
   if (name.includes('clinic')) return DocumentType.CLINIC_NOTES;
   if (name.includes('compliance')) return DocumentType.COMPLIANCE;
   if (name.includes('billing')) return DocumentType.BILLING;
+  if (name.includes('session') || name.includes('recording')) return DocumentType.SESSION_RECORDINGS;
   return DocumentType.GENERAL;
 }
 
@@ -87,11 +93,11 @@ export async function POST(
       );
     }
 
-    // Get form data
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const documentName = formData.get('documentName') as string;
     const documentTypeInput = formData.get('documentType') as string;
+    const sessionId = formData.get('sessionId') as string || null;
 
     if (!file) {
       return NextResponse.json({ message: 'No file provided' }, { status: 400 });
@@ -169,6 +175,7 @@ export async function POST(
         mimeType: file.type,
         storagePath: storagePathInfo.path,
         uploadedById: user.id,
+        sessionId: sessionId || null,
       }
     });
 

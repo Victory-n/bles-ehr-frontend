@@ -15,6 +15,11 @@ const MIME_TO_EXT: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/jpg": ".jpg",
   "text/plain": ".txt",
+  "audio/webm": ".webm",
+  "audio/mpeg": ".mp3",
+  "audio/wav": ".wav",
+  "audio/mp4": ".mp4",
+  "audio/x-m4a": ".m4a",
 };
 
 /** Map FileType enum values to the correct file extension. */
@@ -28,6 +33,7 @@ const FILETYPE_TO_EXT: Record<string, string> = {
   JPG: ".jpg",
   JPEG: ".jpeg",
   TXT: ".txt",
+  AUDIO: ".webm",
 };
 
 /**

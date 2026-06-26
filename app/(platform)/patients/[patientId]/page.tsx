@@ -377,6 +377,7 @@ function FolderTab({ folders, onRefresh }: FolderTabProps) {
     if (name.includes("clinic")) return "CLINIC_NOTES";
     if (name.includes("compliance")) return "COMPLIANCE";
     if (name.includes("billing")) return "BILLING";
+    if (name.includes("session") || name.includes("recording")) return "SESSION_RECORDINGS";
     return "GENERAL";
   };
 
@@ -481,6 +482,9 @@ function FolderTab({ folders, onRefresh }: FolderTabProps) {
     if (type.includes("image") || ["png", "jpg", "jpeg"].includes(ext || "")) {
       return { icon: "image", color: "#e65100" };
     }
+    if (type.includes("audio") || ["webm", "mp3", "wav", "m4a", "mp4"].includes(ext || "")) {
+      return { icon: "audio_file", color: "#7b1fa2" };
+    }
     return { icon: "insert_drive_file", color: "#5f6368" };
   };
 
@@ -530,6 +534,7 @@ function FolderTab({ folders, onRefresh }: FolderTabProps) {
           else if (f.name.toLowerCase().includes("billing")) { icon = "receipt_long"; iconColor = "#1a73e8"; }
           else if (f.name.toLowerCase().includes("compliance")) { icon = "verified_user"; iconColor = "#137333"; }
           else if (f.name.toLowerCase().includes("clinic")) { icon = "edit_note"; iconColor = "#e65100"; }
+          else if (f.name.toLowerCase().includes("session") || f.name.toLowerCase().includes("recording")) { icon = "mic"; iconColor = "#7b1fa2"; }
 
           return (
             <button
@@ -659,9 +664,24 @@ function FolderTab({ folders, onRefresh }: FolderTabProps) {
                   return (
                     <tr key={d.id} style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
                       <td style={{ padding: "12px", fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: 18, color: iconInfo.color }}>{iconInfo.icon}</span>
-                          <span style={{ wordBreak: "break-all" }}>{d.name}</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 18, color: iconInfo.color }}>{iconInfo.icon}</span>
+                            <span style={{ wordBreak: "break-all" }}>{d.name}</span>
+                          </div>
+                          {d.fileType === "AUDIO" && (
+                            <audio
+                              controls
+                              src={`/api/documents/${d.id}`}
+                              style={{
+                                height: 32,
+                                marginTop: 4,
+                                maxWidth: "100%",
+                                borderRadius: 8,
+                                outline: "none",
+                              }}
+                            />
+                          )}
                         </div>
                       </td>
                       <td style={{ padding: "12px", fontSize: 13, color: "var(--color-on-surface)" }}>{uploadedByDisplay}</td>
