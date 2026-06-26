@@ -15,6 +15,7 @@ const BUCKET_CONFIG = {
     "image/png",
     "image/jpeg",
     "text/plain",
+    "text/plain;charset=UTF-8",
     "audio/webm",
     "audio/mpeg",
     "audio/wav",
@@ -56,7 +57,8 @@ export const storageService = {
 
     const { error } = await supabase.storage
       .from(bucketName)
-      .upload(`${folderPath}/.keep`, "", {
+      .upload(`${folderPath}/.keep`, Buffer.from(""), {
+        contentType: "text/plain",
         cacheControl: "3600",
         upsert: true,
       });
