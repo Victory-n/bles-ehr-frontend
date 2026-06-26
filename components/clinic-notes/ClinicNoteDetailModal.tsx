@@ -206,7 +206,7 @@ export default function ClinicNoteDetailModal({
           setTitle(latest.title);
           setNoteType(latest.noteType);
           setProgram(latest.program || "None");
-          
+
           try {
             setTags(typeof latest.tags === "string" ? JSON.parse(latest.tags) : latest.tags || []);
           } catch (e) {
@@ -365,7 +365,7 @@ export default function ClinicNoteDetailModal({
       );
       const availableRecs = recordingsFolder?.documents || [];
       const activeRec = availableRecs.find((r: any) => r.id === selectedRecordingId);
-      
+
       let transcript = activeRec?.transcript;
 
       // Step 1: Transcribe audio if needed
@@ -379,7 +379,7 @@ export default function ClinicNoteDetailModal({
           try {
             const err = await transcribeRes.json();
             errMsg = err.message || errMsg;
-          } catch (_) {}
+          } catch (_) { }
           throw new Error(errMsg);
         }
         const transcribeData = await transcribeRes.json().catch(() => ({}));
@@ -399,11 +399,11 @@ export default function ClinicNoteDetailModal({
       });
 
       if (!generateRes.ok) {
-        let errMsg = "Note generation failed.";
+        let errMsg = "Note generation failed clinic notes.";
         try {
           const err = await generateRes.json();
           errMsg = err.message || errMsg;
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(errMsg);
       }
 
@@ -679,7 +679,7 @@ export default function ClinicNoteDetailModal({
             <span className="material-symbols-outlined" style={{ fontSize: 20, color: "#86868b" }}>description</span>
             <span style={{ fontSize: 13, fontWeight: 500, color: "#86868b" }}>Clinic Note Details</span>
             <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "#86868b" }} />
-            
+
             {latestVersion && (
               <span style={{
                 display: "inline-flex",
@@ -698,7 +698,7 @@ export default function ClinicNoteDetailModal({
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button 
+            <button
               onClick={onClose}
               style={{
                 background: "none",
@@ -735,10 +735,10 @@ export default function ClinicNoteDetailModal({
           </div>
         ) : (
           <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 380px", overflow: "hidden" }}>
-            
+
             {/* LEFT SIDE: Content and Fields */}
             <div style={{ display: "flex", flexDirection: "column", padding: "24px 32px", overflowY: "auto", gap: 20 }}>
-              
+
               {/* Alert for amendment */}
               {isEditing && latestVersion && (latestVersion.status === "SIGNED" || latestVersion.status === "LOCKED") && (
                 <div style={{
@@ -763,7 +763,7 @@ export default function ClinicNoteDetailModal({
               {isEditing ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, borderBottom: "1px solid #e5e5e7", paddingBottom: 20 }}>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                    
+
                     {/* Note Title */}
                     <div style={{ flex: 1.2, minWidth: 260 }}>
                       <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "#86868b", display: "block", marginBottom: 6 }}>NOTE TITLE</label>
@@ -787,7 +787,7 @@ export default function ClinicNoteDetailModal({
 
                     {/* Note Type & Program */}
                     <div style={{ flex: 2, display: "flex", gap: 12, minWidth: 320 }}>
-                      
+
                       <div style={{ flex: 1 }}>
                         <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "#86868b", display: "block", marginBottom: 6 }}>NOTE TYPE</label>
                         <select

@@ -344,7 +344,7 @@ export default function NewClinicNotePage() {
       });
 
       if (!generateRes.ok) {
-        let errMsg = "Note generation failed.";
+        let errMsg = "Note generation failed page.";
         try {
           const err = await generateRes.json();
           errMsg = err.message || errMsg;
