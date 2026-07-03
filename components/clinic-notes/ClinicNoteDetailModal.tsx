@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { computeDiff, DiffChunk } from "@/lib/utils/diff";
 import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
+import { cleanMarkdownToPlainText } from "@/utils/formatters";
 
 interface UserInfo {
   id: string;
@@ -424,13 +425,14 @@ export default function ClinicNoteDetailModal({
         throw new Error("No note content was returned from the server.");
       }
 
+      const cleanedNote = cleanMarkdownToPlainText(generateData.note);
       if (content.trim()) {
         const confirmReplace = window.confirm("Do you want to replace the current editor content with the AI-generated note?");
         if (confirmReplace) {
-          setContent(generateData.note);
+          setContent(cleanedNote);
         }
       } else {
-        setContent(generateData.note);
+        setContent(cleanedNote);
       }
     } catch (err: any) {
       console.error(err);
@@ -959,7 +961,8 @@ export default function ClinicNoteDetailModal({
                     onChange={(e) => {
                       const t = templates.find((temp: any) => temp.id === e.target.value);
                       if (t) {
-                        setContent((prev) => prev + (prev.trim() ? "\n\n" : "") + t.structure);
+                        const cleanStructure = cleanMarkdownToPlainText(t.structure);
+                        setContent((prev) => prev + (prev.trim() ? "\n\n" : "") + cleanStructure);
                       }
                       e.target.value = "";
                     }}

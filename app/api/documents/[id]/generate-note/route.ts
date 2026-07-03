@@ -5,6 +5,29 @@ import { GoogleGenAI } from "@google/genai";
 
 export const maxDuration = 60; // 60 seconds timeout for AWS Lambda
 
+function formatTemplateStructureForAI(structureStr: string): string {
+  try {
+    const parsed = JSON.parse(structureStr);
+    if (parsed && Array.isArray(parsed.sections)) {
+      return parsed.sections
+        .map((sec: any, idx: number) => {
+          let optionsText = "";
+          if (sec.options && sec.options.length > 0) {
+            optionsText = `\nOptions: ${sec.options.join(", ")}`;
+          }
+          let styleText = sec.style ? `\nStyle: ${sec.style}` : "";
+          return `Section ${idx + 1}: ${sec.sectionName}
+Type: ${sec.type}${styleText}${optionsText}
+Instructions: ${sec.instructions}`;
+        })
+        .join("\n\n");
+    }
+  } catch (e) {
+    // Return as-is if it's not valid JSON (legacy markdown)
+  }
+  return structureStr;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -65,13 +88,15 @@ Follow these guidelines carefully:
 3. Tone: Maintain a objective, formal, and clinical tone. Use professional medical/behavioral terminology.
 4. Privacy: Do not expose raw identifiers or unneeded PHI.`;
 
+    const formattedStructure = formatTemplateStructureForAI(template.structure);
+
     const userPrompt = `Generate a clinical note using the template and transcript details below:
 
 --- TEMPLATE INFO ---
 Name: ${template.name}
 Description: ${template.description || "None"}
 Structure Layout:
-${template.structure}
+${formattedStructure}
 
 Instructions:
 ${template.prompt || "Format the session transcript using the structure layout."}

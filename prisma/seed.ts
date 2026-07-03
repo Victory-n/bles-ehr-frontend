@@ -57,19 +57,108 @@ async function main() {
     {
       name: "SOAP Note",
       description: "Subjective, Objective, Assessment, Plan",
-      structure: `# SOAP Note\n\n### Subjective (S)\n- [Insert subjective report here]\n\n### Objective (O)\n- [Insert clinical observations here]\n\n### Assessment (A)\n- [Insert evaluation & clinical impression here]\n\n### Plan (P)\n- [Insert follow-up actions here]`,
+      structure: JSON.stringify({
+        specialty: "psychiatry",
+        sections: [
+          {
+            id: "s_1",
+            type: "TEXT_FIELD",
+            sectionName: "Subjective",
+            style: "bullet points",
+            instructions: "Record client's self-reported feelings, thoughts, and symptoms during the session."
+          },
+          {
+            id: "s_2",
+            type: "TEXT_FIELD",
+            sectionName: "Objective",
+            style: "flow text",
+            instructions: "Record clinical observations, physical symptoms, appearance, and mental status exam results."
+          },
+          {
+            id: "s_3",
+            type: "TEXT_FIELD",
+            sectionName: "Assessment",
+            style: "flow text",
+            instructions: "Provide diagnostic assessment, clinical reasoning, and progress towards goals."
+          },
+          {
+            id: "s_4",
+            type: "TEXT_FIELD",
+            sectionName: "Plan",
+            style: "bullet points",
+            instructions: "Detail future treatment interventions, homework assigned, and next scheduled sessions."
+          }
+        ]
+      }, null, 2),
       prompt: "Draft a professional clinical SOAP note. Group statements describing the patient's thoughts, feelings, and self-reported issues under Subjective. Put clinical observations, behavior, and status exams under Objective. Provide clinical reasoning and diagnosis evaluation under Assessment. Outline future treatments and interventions under Plan."
     },
     {
       name: "BIRP Note",
       description: "Behavior, Intervention, Response, Plan",
-      structure: `# BIRP Note\n\n### Behavior (B)\n- [Insert behavior description here]\n\n### Intervention (I)\n- [Insert clinician interventions here]\n\n### Response (R)\n- [Insert patient response here]\n\n### Plan (P)\n- [Insert clinical plan here]`,
+      structure: JSON.stringify({
+        specialty: "psychology",
+        sections: [
+          {
+            id: "b_1",
+            type: "TEXT_FIELD",
+            sectionName: "Behavior",
+            style: "flow text",
+            instructions: "Describe patient behavior, clinical presentation, and symptoms observed."
+          },
+          {
+            id: "b_2",
+            type: "TEXT_FIELD",
+            sectionName: "Intervention",
+            style: "bullet points",
+            instructions: "Document therapeutic interventions used by the clinician during the session."
+          },
+          {
+            id: "b_3",
+            type: "TEXT_FIELD",
+            sectionName: "Response",
+            style: "flow text",
+            instructions: "Document patient response to interventions and active participation in the session."
+          },
+          {
+            id: "b_4",
+            type: "TEXT_FIELD",
+            sectionName: "Plan",
+            style: "bullet points",
+            instructions: "Outline treatment plan, homework, and next session focus."
+          }
+        ]
+      }, null, 2),
       prompt: "Draft a professional clinical BIRP note. Under Behavior, document how the patient behaved and presented. Under Intervention, specify what clinical techniques or guidance was given. Under Response, explain the patient's reaction to those techniques. Under Plan, define the treatment path and schedule."
     },
     {
       name: "DAP Note",
       description: "Data, Assessment, Plan",
-      structure: `# DAP Note\n\n### Data (D)\n- [Insert session data and observations here]\n\n### Assessment (A)\n- [Insert progress evaluation here]\n\n### Plan (P)\n- [Insert next steps here]`,
+      structure: JSON.stringify({
+        specialty: "clinical psychology",
+        sections: [
+          {
+            id: "d_1",
+            type: "TEXT_FIELD",
+            sectionName: "Data",
+            style: "flow text",
+            instructions: "Combine subjective client statements and objective clinical observations from the session."
+          },
+          {
+            id: "d_2",
+            type: "TEXT_FIELD",
+            sectionName: "Assessment",
+            style: "flow text",
+            instructions: "Analyze session data, evaluate progress, and note alignment with treatment goals."
+          },
+          {
+            id: "d_3",
+            type: "TEXT_FIELD",
+            sectionName: "Plan",
+            style: "bullet points",
+            instructions: "Record follow-ups, scheduled appointments, and next steps."
+          }
+        ]
+      }, null, 2),
       prompt: "Draft a professional clinical DAP note. Under Data, compile both subjective client statements and objective clinical observations from the session. Under Assessment, analyze the data to evaluate progress and diagnosis alignment. Under Plan, document follow-ups, homework, and appointment targets."
     }
   ];

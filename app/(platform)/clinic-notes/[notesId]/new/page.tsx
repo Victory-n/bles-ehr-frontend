@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { cleanMarkdownToPlainText } from "@/utils/formatters";
 
 async function getResponseError(res: Response, defaultMsg: string): Promise<string> {
   const status = res.status;
@@ -16,11 +17,11 @@ async function getResponseError(res: Response, defaultMsg: string): Promise<stri
       if (parsed && parsed.message) {
         return `${parsed.message} (Status: ${status})`;
       }
-    } catch (_) {}
-  } catch (_) {}
+    } catch (_) { }
+  } catch (_) { }
 
-  const cleanBody = bodyText 
-    ? bodyText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150) 
+  const cleanBody = bodyText
+    ? bodyText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150)
     : "";
   return `${defaultMsg} (Status: ${status} ${statusText})${cleanBody ? ` | Details: ${cleanBody}` : ""}`;
 }
@@ -76,6 +77,10 @@ export default function NewClinicNotePage() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedRecordingId, setSelectedRecordingId] = useState("");
+
+  // JSON Template and Form Filler State
+  const [activeJSONTemplate, setActiveJSONTemplate] = useState<any | null>(null);
+  const [formAnswers, setFormAnswers] = useState<{ [sectionId: string]: any }>({});
 
   // Setup speech recognition
   useEffect(() => {
@@ -176,6 +181,38 @@ export default function NewClinicNotePage() {
     };
     fetchTemplates();
   }, []);
+
+  // Parse JSON template and set initial answers when template changes
+  useEffect(() => {
+    if (!selectedTemplateId) {
+      setActiveJSONTemplate(null);
+      return;
+    }
+    const t = templates.find((temp: any) => temp.id === selectedTemplateId);
+    if (t) {
+      try {
+        const parsed = JSON.parse(t.structure);
+        if (parsed && Array.isArray(parsed.sections)) {
+          setActiveJSONTemplate(parsed);
+          const initialAnswers: { [sectionId: string]: any } = {};
+          parsed.sections.forEach((sec: any) => {
+            if (sec.type === "TEXT_FIELD") {
+              initialAnswers[sec.id] = "";
+            } else if (sec.type === "CHECKBOX") {
+              initialAnswers[sec.id] = [];
+            } else if (sec.type === "RADIO_BUTTON") {
+              initialAnswers[sec.id] = "";
+            }
+          });
+          setFormAnswers(initialAnswers);
+          return;
+        }
+      } catch (e) {
+        // Not a JSON template
+      }
+    }
+    setActiveJSONTemplate(null);
+  }, [selectedTemplateId, templates]);
 
   const fetchPatientDetails = async (patientId: string) => {
     try {
@@ -369,13 +406,14 @@ export default function NewClinicNotePage() {
         throw new Error("No note content was returned from the server.");
       }
 
+      const cleanedNote = cleanMarkdownToPlainText(generateData.note);
       if (editorText.trim()) {
         const confirmReplace = window.confirm("Do you want to replace the current editor content with the AI-generated note?");
         if (confirmReplace) {
-          setEditorText(generateData.note);
+          setEditorText(cleanedNote);
         }
       } else {
-        setEditorText(generateData.note);
+        setEditorText(cleanedNote);
       }
     } catch (err: any) {
       console.error(err);
@@ -383,6 +421,48 @@ export default function NewClinicNotePage() {
     } finally {
       setIsGenerating(false);
       setIsTranscribing(false);
+    }
+  };
+
+  const syncFormToEditor = () => {
+    if (!activeJSONTemplate) return;
+    let markdown = "";
+    activeJSONTemplate.sections.forEach((sec: any) => {
+      markdown += `### ${sec.sectionName}\n`;
+      const ans = formAnswers[sec.id];
+      if (sec.type === "TEXT_FIELD") {
+        markdown += `${ans || ""}\n\n`;
+      } else if (sec.type === "CHECKBOX") {
+        const checkedOpts = ans || [];
+        if (checkedOpts.length > 0) {
+          checkedOpts.forEach((opt: string) => {
+            markdown += `- [x] ${opt}\n`;
+          });
+        } else {
+          markdown += `*(None selected)*\n`;
+        }
+        markdown += `\n`;
+      } else if (sec.type === "RADIO_BUTTON") {
+        if (ans) {
+          markdown += `- (x) ${ans}\n`;
+        } else {
+          markdown += `*(None selected)*\n`;
+        }
+        markdown += `\n`;
+      }
+    });
+
+    const cleanText = cleanMarkdownToPlainText(markdown.trim());
+
+    if (editorText.trim()) {
+      const confirmReplace = window.confirm("Do you want to replace current editor text with these Form responses? Click 'Cancel' to append instead.");
+      if (confirmReplace) {
+        setEditorText(cleanText);
+      } else {
+        setEditorText((prev) => prev + (prev.trim() ? "\n\n" : "") + cleanText);
+      }
+    } else {
+      setEditorText(cleanText);
     }
   };
 
@@ -766,9 +846,19 @@ export default function NewClinicNotePage() {
             {/* Template Dropdown */}
             <select
               onChange={(e) => {
-                const t = templates.find((temp: any) => temp.id === e.target.value);
-                if (t) {
-                  setEditorText((prev) => prev + (prev.trim() ? "\n\n" : "") + t.structure);
+                const templateId = e.target.value;
+                if (templateId) {
+                  setSelectedTemplateId(templateId);
+                  const t = templates.find((temp: any) => temp.id === templateId);
+                  if (t) {
+                    try {
+                      JSON.parse(t.structure);
+                      // Handled by useEffect which sets activeJSONTemplate
+                    } catch (err) {
+                      const cleanStructure = cleanMarkdownToPlainText(t.structure);
+                      setEditorText((prev) => prev + (prev.trim() ? "\n\n" : "") + cleanStructure);
+                    }
+                  }
                 }
                 e.target.value = "";
               }}
@@ -1020,26 +1110,199 @@ export default function NewClinicNotePage() {
         </div>
 
         {/* Text Editor Area */}
-        <div style={{ padding: "24px 32px" }}>
-          <textarea
-            value={editorText}
-            onChange={(e) => {
-              setEditorText(e.target.value);
-            }}
-            style={{
-              width: "100%",
-              height: "320px",
-              border: "none",
-              outline: "none",
-              resize: "none",
-              fontSize: 14,
-              fontFamily: "var(--font-sans, Inter, system-ui, sans-serif)",
-              lineHeight: "1.7",
-              color: "#1d1d1f",
-              backgroundColor: "transparent",
-            }}
-            placeholder="Type clinical notes here..."
-          />
+        <div style={{ display: "flex", borderTop: "1px solid var(--color-outline-variant, #e5e5e7)", flexDirection: typeof window !== "undefined" && window.innerWidth < 768 ? "column" : "row" }}>
+
+          {/* Main Markdown Text Editor */}
+          <div style={{
+            flex: activeJSONTemplate ? 1.2 : 1,
+            padding: "24px 32px",
+            borderRight: activeJSONTemplate && typeof window !== "undefined" && window.innerWidth >= 768 ? "1px solid var(--color-outline-variant, #e5e5e7)" : "none"
+          }}>
+            <textarea
+              value={editorText}
+              onChange={(e) => {
+                setEditorText(e.target.value);
+              }}
+              style={{
+                width: "100%",
+                height: "400px",
+                border: "none",
+                outline: "none",
+                resize: "none",
+                fontSize: 14,
+                fontFamily: "var(--font-sans, Inter, system-ui, sans-serif)",
+                lineHeight: "1.7",
+                color: "#1d1d1f",
+                backgroundColor: "transparent",
+              }}
+              placeholder="Type clinical notes here..."
+            />
+          </div>
+
+          {/* Template Form Filler Panel */}
+          {activeJSONTemplate && (
+            <div style={{
+              flex: 0.8,
+              padding: "24px 32px",
+              backgroundColor: "#f7f9fc",
+              borderTop: typeof window !== "undefined" && window.innerWidth < 768 ? "1px solid var(--color-outline-variant, #e5e5e7)" : "none",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+              maxHeight: "450px",
+              overflowY: "auto"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e1e4e8", paddingBottom: 10 }}>
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--color-primary-container)" }}>
+                    Form Filler: {activeJSONTemplate.name || "Template"}
+                  </h3>
+                  <span style={{ fontSize: 11, color: "var(--color-outline)" }}>
+                    Specialty: {activeJSONTemplate.specialty}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={syncFormToEditor}
+                  style={{
+                    padding: "6px 12px",
+                    backgroundColor: "var(--color-primary-container)",
+                    color: "#ffffff",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>sync</span>
+                  Sync to Editor
+                </button>
+              </div>
+
+              {/* Render dynamic form fields */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {activeJSONTemplate.sections.map((sec: any) => (
+                  <div key={sec.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-on-surface)" }}>
+                        {sec.sectionName}
+                      </span>
+                      <span style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        backgroundColor: "#e8eff6",
+                        color: "var(--color-primary-container)",
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        textTransform: "uppercase"
+                      }}>
+                        {sec.type.replace("_", " ")}
+                      </span>
+                    </div>
+
+                    {sec.instructions && (
+                      <p style={{ fontSize: 11, color: "var(--color-on-surface-variant)", margin: 0, fontStyle: "italic" }}>
+                        {sec.instructions}
+                      </p>
+                    )}
+
+                    {sec.type === "TEXT_FIELD" && (
+                      <textarea
+                        rows={3}
+                        placeholder={`Enter text (${sec.style || "flow text"})...`}
+                        value={formAnswers[sec.id] || ""}
+                        onChange={(e) => setFormAnswers({ ...formAnswers, [sec.id]: e.target.value })}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          fontSize: 13,
+                          border: "1px solid var(--color-outline-variant)",
+                          borderRadius: 6,
+                          outline: "none",
+                          backgroundColor: "#ffffff",
+                          resize: "vertical",
+                          fontFamily: "inherit"
+                        }}
+                      />
+                    )}
+
+                    {sec.type === "CHECKBOX" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 2 }}>
+                        {(sec.options || []).map((opt: string) => {
+                          const isChecked = (formAnswers[sec.id] || []).includes(opt);
+                          return (
+                            <label key={opt} style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const current = formAnswers[sec.id] || [];
+                                  const next = e.target.checked
+                                    ? [...current, opt]
+                                    : current.filter((o: string) => o !== opt);
+                                  setFormAnswers({ ...formAnswers, [sec.id]: next });
+                                }}
+                                style={{ cursor: "pointer" }}
+                              />
+                              {opt}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {sec.type === "RADIO_BUTTON" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 2 }}>
+                        {(sec.options || []).map((opt: string) => (
+                          <label key={opt} style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                            <input
+                              type="radio"
+                              name={`filler-radio-${sec.id}`}
+                              checked={formAnswers[sec.id] === opt}
+                              onChange={() => setFormAnswers({ ...formAnswers, [sec.id]: opt })}
+                              style={{ cursor: "pointer" }}
+                            />
+                            {opt}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ borderTop: "1px solid #e1e4e8", paddingTop: 12, marginTop: 4 }}>
+                <button
+                  type="button"
+                  onClick={syncFormToEditor}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    backgroundColor: "var(--color-primary-container)",
+                    color: "#ffffff",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>sync</span>
+                  Sync Form responses to Editor
+                </button>
+              </div>
+
+            </div>
+          )}
+
         </div>
 
       </div>

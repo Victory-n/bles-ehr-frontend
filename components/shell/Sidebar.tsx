@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { label: "Billing", href: "/billing", icon: "payments" },
   { label: "Compliance", href: "/compliance", icon: "verified_user" },
   { label: "Audit Log", href: "/audit-log", icon: "history" },
+  { label: "Templates", href: "/templates", icon: "assignment" },
   { label: "Settings", href: "/settings", icon: "settings" },
 ];
 
