@@ -1,132 +1,26 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import ClinicNoteDetailModal from "@/components/clinic-notes/ClinicNoteDetailModal";
-import { DocumentType, SignatureStatus } from "@prisma/client";
-import { useAuth } from "@/lib/auth/AuthContext";
+import { DocumentType } from "@prisma/client";
 
-const TABS = ["Compliance Files", "Clinic Notes", "General Documents", "Billing Records"] as const;
+const TABS = ["Overview", "Session", "Treatment Plan", "Diagnosis", "Appointments", "Compliance", "Clinic Notes", "General Documents", "Billing Records"] as const;
 type Tab = (typeof TABS)[number];
 
-interface PatientData {
-  id: string;
-  patientId: string;
-  firstname: string;
-  lastname: string;
-  dateOfBirth: string;
-  status: string;
-}
-
-interface DocumentData {
-  id: string;
-  documentId: string;
-  name: string;
-  documentType: DocumentType;
-  signatureStatus: SignatureStatus;
-  createdAt: string;
-}
-
-interface StatsData {
-  totalDocuments: number;
-  complianceRate: number;
-  signedForms: number;
-  pendingSignatures: number;
-  signedNotes: number;
-}
-
-/* ========================================================================== */
 export default function ClinicNotesDetailPage() {
   const params = useParams();
   const router = useRouter();
   const notesId = params.notesId as string;
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("Compliance Files");
-  const [selectedNote, setSelectedNote] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [patient, setPatient] = useState<PatientData | null>(null);
-  const [documents, setDocuments] = useState<DocumentData[]>([]);
-  const [stats, setStats] = useState<StatsData | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const [isTreatmentPlanModalOpen, setIsTreatmentPlanModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  // Toast helper
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 5000);
   }, []);
-
-  // Fetch data
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch folder and patient data
-      const folderRes = await fetch(`/api/folders/${notesId}`);
-      if (!folderRes.ok) throw new Error('Failed to fetch folder');
-      const folderData = await folderRes.json();
-      
-      setPatient({
-        ...folderData.patient,
-        name: `${folderData.patient.lastname}, ${folderData.patient.firstname}`
-      });
-      setDocuments(folderData.documents);
-      
-      // Fetch stats
-      if (folderData.patient.id) {
-        const statsRes = await fetch(`/api/patients/${folderData.patient.id}/stats`);
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          setStats(statsData.stats);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [notesId]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Handle signature actions
-  const handleMarkPending = async (documentId: string) => {
-    try {
-      const res = await fetch(`/api/documents/${documentId}/signature`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'mark_pending' })
-      });
-
-      if (res.ok) {
-        fetchData();
-      }
-    } catch (error) {
-      console.error('Failed to mark as pending:', error);
-    }
-  };
-
-  const handleSignDocument = async (documentId: string, note?: string) => {
-    try {
-      const res = await fetch(`/api/documents/${documentId}/signature`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'sign',
-          signatureNote: note,
-          signerType: 'PATIENT'
-        })
-      });
-
-      if (res.ok) {
-        fetchData();
-      }
-    } catch (error) {
-      console.error('Failed to sign document:', error);
-    }
-  };
 
   const handleUploadClick = () => {
     setIsUploadModalOpen(true);
@@ -145,7 +39,6 @@ export default function ClinicNotesDetailPage() {
       if (res.ok) {
         showToast('File uploaded successfully!', 'success');
         setIsUploadModalOpen(false);
-        fetchData();
       } else {
         const data = await res.json();
         showToast(data.message || 'Failed to upload file', 'error');
@@ -155,57 +48,6 @@ export default function ClinicNotesDetailPage() {
       showToast('Failed to upload file', 'error');
     }
   };
-
-  if (loading) {
-    return <div style={{ padding: 24 }}>Loading...</div>;
-  }
-
-  if (!patient) {
-    return <div style={{ padding: 24 }}>Patient not found</div>;
-  }
-
-  const statusColor = patient.status === "Active" ? "#137333" : patient.status === "Inactive" ? "#b3261e" : "#5f6368";
-  const statusBg = patient.status === "Active" ? "#e6f4ea" : patient.status === "Inactive" ? "#fce8e8" : "#f1f3f4";
-
-  // Calculate compliance rate color based on value
-  const compliancePct = stats?.complianceRate || 0;
-  const complianceColor = compliancePct >= 70 ? "#137333" : compliancePct >= 50 ? "#e65100" : "#b3261e";
-
-  // Calculate age from date of birth
-  const calculateAge = (dob: string) => {
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  // Format date
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  // Filter documents by tab
-  const getFilteredDocuments = () => {
-    switch (activeTab) {
-      case "Compliance Files":
-        return documents.filter(d => d.documentType === DocumentType.COMPLIANCE);
-      case "Clinic Notes":
-        return documents.filter(d => d.documentType === DocumentType.CLINIC_NOTES);
-      case "General Documents":
-        return documents.filter(d => d.documentType === DocumentType.GENERAL);
-      case "Billing Records":
-        return documents.filter(d => d.documentType === DocumentType.BILLING);
-      default:
-        return [];
-    }
-  };
-
-  const filteredDocs = getFilteredDocuments();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -228,119 +70,111 @@ export default function ClinicNotesDetailPage() {
       )}
 
       {/* --- Breadcrumb ------------------------------------------------ */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--color-on-surface-variant)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--color-on-surface-variant)", marginBottom: 8 }}>
         <span style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => router.push("/clinic-notes")}>Clinic Notes</span>
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>chevron_right</span>
         <span style={{ fontWeight: 600, color: "var(--color-on-surface)" }}>{notesId}</span>
       </div>
 
-      {/* --- Patient header card ---------------------------------------- */}
-      <div style={{ background: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)", borderRadius: 12, padding: 24, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
-        {/* Avatar */}
-        <div style={{ width: 72, height: 72, borderRadius: 12, background: "var(--color-primary-container)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 36, color: "#ffffff" }}>person</span>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 32, alignItems: "start" }}>
 
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>{`${patient.lastname}, ${patient.firstname}`}</h2>
-            <span className="material-symbols-outlined icon-fill" style={{ fontSize: 18, color: "var(--color-secondary)" }}>verified</span>
+        {/* --- Left Sidebar Navigation ------------------- */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24, position: "sticky", top: 24 }}>
+
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-on-surface-variant)", letterSpacing: "0.08em", paddingLeft: 12, marginBottom: 8 }}>PATIENT</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <SidebarBtn
+                active={activeTab === "Overview"}
+                onClick={() => setActiveTab("Overview")}
+                icon="dashboard"
+                label="Overview"
+              />
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", fontSize: 13, color: "var(--color-on-surface-variant)" }}>
-            <InfoChip icon="cake" text={`DOB: ${formatDate(patient.dateOfBirth)} (${calculateAge(patient.dateOfBirth)}y)`} />
-            <InfoChip icon="badge" text={`ID: ${patient.patientId}`} />
+
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-on-surface-variant)", letterSpacing: "0.08em", paddingLeft: 12, marginBottom: 8 }}>CLINICAL</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <SidebarBtn
+                active={activeTab === "Session"}
+                onClick={() => setActiveTab("Session")}
+                icon="event_note"
+                label="Session"
+              />
+              <SidebarBtn
+                active={activeTab === "Treatment Plan"}
+                onClick={() => setActiveTab("Treatment Plan")}
+                icon="medical_services"
+                label="Treatment Plan"
+              />
+              <SidebarBtn
+                active={activeTab === "Diagnosis"}
+                onClick={() => setActiveTab("Diagnosis")}
+                icon="medical_information"
+                label="Diagnosis"
+              />
+              <SidebarBtn
+                active={activeTab === "Appointments"}
+                onClick={() => setActiveTab("Appointments")}
+                icon="calendar_today"
+                label="Appointments"
+              />
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, background: statusBg, color: statusColor }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor }} />{patient.status}
-            </span>
+
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-on-surface-variant)", letterSpacing: "0.08em", paddingLeft: 12, marginBottom: 8 }}>ADMINISTRATIVE</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <SidebarBtn
+                active={activeTab === "Clinic Notes"}
+                onClick={() => setActiveTab("Clinic Notes")}
+                icon="edit_note"
+                label="Clinic Notes"
+              />
+              <SidebarBtn
+                active={activeTab === "Compliance"}
+                onClick={() => setActiveTab("Compliance")}
+                icon="verified_user"
+                label="Compliance"
+              />
+              <SidebarBtn
+                active={activeTab === "General Documents"}
+                onClick={() => setActiveTab("General Documents")}
+                icon="folder"
+                label="General Documents"
+              />
+              <SidebarBtn
+                active={activeTab === "Billing Records"}
+                onClick={() => setActiveTab("Billing Records")}
+                icon="receipt_long"
+                label="Billing Records"
+              />
+            </div>
           </div>
+
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <HeaderBtn icon="note_add" label="Add Clinic Note" onClick={() => router.push(`/clinic-notes/${notesId}/new`)} />
-          <HeaderBtn icon="upload_file" label="Upload File" filled color="var(--color-secondary)" onClick={handleUploadClick} />
-        </div>
-      </div>
+        {/* --- Right Main Content Area -------------------------------- */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-      {/* --- Stats Bar -------------------------------------------------- */}
-      <div style={{
-        background: "var(--color-surface-container-lowest)",
-        border: "1px solid var(--color-outline-variant)",
-        borderRadius: 12,
-        padding: "20px 0",
-        display: "grid",
-        gridTemplateColumns: "repeat(5, 1fr)",
-        alignItems: "center",
-      }}>
-        <div style={{ paddingLeft: 24, paddingRight: 24 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-on-surface-variant)", letterSpacing: "0.08em", marginBottom: 6 }}>TOTAL DOCUMENTS</div>
-          <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "Georgia, serif", color: "var(--color-on-surface)" }}>{stats?.totalDocuments ?? 0}</div>
-        </div>
-        <div style={{ borderLeft: "1px solid var(--color-outline-variant)", paddingLeft: 24, paddingRight: 24 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-on-surface-variant)", letterSpacing: "0.08em", marginBottom: 6 }}>COMPLIANCE RATE</div>
-          <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "Georgia, serif", color: complianceColor }}>{`${compliancePct}%`}</div>
-        </div>
-        <div style={{ borderLeft: "1px solid var(--color-outline-variant)", paddingLeft: 24, paddingRight: 24 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-on-surface-variant)", letterSpacing: "0.08em", marginBottom: 6 }}>SIGNED FORMS</div>
-          <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "Georgia, serif", color: "#137333" }}>{stats?.signedForms ?? 0}</div>
-        </div>
-        <div style={{ borderLeft: "1px solid var(--color-outline-variant)", paddingLeft: 24, paddingRight: 24 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-on-surface-variant)", letterSpacing: "0.08em", marginBottom: 6 }}>PENDING SIGNATURES</div>
-          <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "Georgia, serif", color: "#e65100" }}>{stats?.pendingSignatures ?? 0}</div>
-        </div>
-        <div style={{ borderLeft: "1px solid var(--color-outline-variant)", paddingLeft: 24, paddingRight: 24 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-on-surface-variant)", letterSpacing: "0.08em", marginBottom: 6 }}>SIGNED NOTES</div>
-          <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "Georgia, serif", color: "#1a73e8" }}>{stats?.signedNotes ?? 0}</div>
-        </div>
-      </div>
+          {/* Top Action Buttons */}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <HeaderBtn icon="note_add" label="Add Clinic Note" onClick={() => router.push(`/clinic-notes/${notesId}/new`)} />
+            <HeaderBtn icon="mic" label="Start recording" onClick={() => { }} />
+            <HeaderBtn icon="upload_file" label="Upload File" filled color="var(--color-secondary)" onClick={handleUploadClick} />
+          </div>
 
-      {/* --- Tabs ------------------------------------------------------- */}
-      <div style={{ display: "flex", gap: 0, borderBottom: "2px solid var(--color-outline-variant)", overflowX: "auto" }}>
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setActiveTab(t)}
-            style={{
-              padding: "10px 20px",
-              fontSize: 14,
-              fontWeight: activeTab === t ? 700 : 500,
-              color: activeTab === t ? "var(--color-primary-container)" : "var(--color-on-surface-variant)",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === t ? "2px solid var(--color-primary-container)" : "2px solid transparent",
-              marginBottom: -2,
-              cursor: "pointer",
-              transition: "color 0.12s",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+          {activeTab === "Overview" && <OverviewView />}
+          {activeTab === "Session" && <SessionTable />}
+          {activeTab === "Treatment Plan" && <TreatmentPlanView onSetPlan={() => setIsTreatmentPlanModalOpen(true)} />}
+          {activeTab === "Diagnosis" && <TierUpgradeCard featureName="Diagnosis" tier={3} />}
+          {activeTab === "Appointments" && <AppointmentsView onSetAppointment={() => setIsAppointmentModalOpen(true)} />}
+          {activeTab === "Compliance" && <TierUpgradeCard featureName="Compliance" tier={3} />}
+          {activeTab === "Billing Records" && <TierUpgradeCard featureName="Billing Records" tier={2} />}
 
-      {/* --- Tab content ------------------------------------------------ */}
-      <DocumentTable
-        activeTab={activeTab}
-        docs={filteredDocs}
-        onViewClick={(doc) => setSelectedNote(doc)}
-        onMarkPending={handleMarkPending}
-        onSignDocument={handleSignDocument}
-        formatDate={formatDate}
-      />
-
-
-      {/* --- Clinic Note detail modal ---------------------------------- */}
-      <ClinicNoteDetailModal
-        isOpen={selectedNote !== null}
-        onClose={() => setSelectedNote(null)}
-        documentId={selectedNote?.id}
-        patient={patient as any}
-        onUpdate={fetchData}
-      />
+        </div> {/* End of Right Main Content Area */}
+      </div> {/* End of Grid Wrapper */}
 
       {/* --- Upload modal ---------------------------------------------- */}
       {isUploadModalOpen && (
@@ -451,195 +285,149 @@ export default function ClinicNotesDetailPage() {
         </div>
       )}
 
+      {/* --- Appointment modal ---------------------------------------------- */}
+      {isAppointmentModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: 'var(--color-surface-container-lowest)',
+            borderRadius: 12,
+            padding: 24,
+            width: '100%',
+            maxWidth: 500
+          }}>
+            <h3 style={{ fontSize: 20, fontWeight: 700, margin: 0, marginBottom: 16 }}>Set Appointment</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              showToast("Appointment successfully scheduled!", "success");
+              setIsAppointmentModalOpen(false);
+            }}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>Appointment Name</label>
+                <input type="text" placeholder="Enter appointment name" required style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>Date</label>
+                  <input type="date" required style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>Time</label>
+                  <input type="time" required style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }} />
+                </div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>Provider</label>
+                <select required style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }}>
+                  <option value="">Select provider</option>
+                  <option value="Dr. Sarah Jenkins">Dr. Sarah Jenkins</option>
+                  <option value="Dr. Michael Chen">Dr. Michael Chen</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>Location</label>
+                <select required style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }}>
+                  <option value="Telehealth">Telehealth</option>
+                  <option value="In-Person (Main Clinic)">In-Person (Main Clinic)</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAppointmentModalOpen(false)}
+                  style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--color-outline-variant)', background: 'transparent', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: '#ffffff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Schedule
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- Treatment Plan modal ---------------------------------------------- */}
+      {isTreatmentPlanModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: 'var(--color-surface-container-lowest)',
+            borderRadius: 12,
+            padding: 24,
+            width: '100%',
+            maxWidth: 500
+          }}>
+            <h3 style={{ fontSize: 20, fontWeight: 700, margin: 0, marginBottom: 16 }}>Create Treatment Plan</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              showToast("Treatment plan successfully created!", "success");
+              setIsTreatmentPlanModalOpen(false);
+            }}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>Select Sessions (Optional)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, maxHeight: 150, overflowY: 'auto', background: '#f8f9fb' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', color: 'var(--color-on-surface)' }}>
+                    <input type="checkbox" value="SES-76137" style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                    SES-76137: Cognitive Behavioural Therapy
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', color: 'var(--color-on-surface)' }}>
+                    <input type="checkbox" value="SES-76138" style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                    SES-76138: Initial Assessment
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsTreatmentPlanModalOpen(false)}
+                  style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--color-outline-variant)', background: 'transparent', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: '#ffffff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-
 
 /* ==========================================================================
    Shared Sub-components
 ========================================================================== */
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ background: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)", borderRadius: 12, overflow: "hidden" }}>
-      <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--color-outline-variant)" }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>{title}</h3>
-      </div>
-      <div style={{ padding: 20 }}>{children}</div>
-    </div>
-  );
-}
-
-function getTypeBadgeStyle(type: string) {
-  const t = type?.toLowerCase() || "";
-  if (t.includes("intake")) {
-    return { background: "#e8f0fe", color: "#1a73e8" }; // blue
-  }
-  if (t.includes("progress")) {
-    return { background: "#e6f4ea", color: "#137333" }; // green
-  }
-  if (t.includes("group")) {
-    return { background: "#f3e8fd", color: "#9333ea" }; // purple
-  }
-  if (t.includes("assessment") || t.includes("summary")) {
-    return { background: "#fff3e0", color: "#e65100" }; // amber
-  }
-  // Fallback for PDF or others
-  return { background: "#f1f3f4", color: "#5f6368" }; // grey
-}
-
-function DocumentTable({ 
-  activeTab,
-  docs, 
-  onViewClick, 
-  onMarkPending, 
-  onSignDocument,
-  formatDate
-}: { 
-  activeTab: string;
-  docs: DocumentData[]; 
-  onViewClick?: (doc: DocumentData) => void;
-  onMarkPending?: (documentId: string) => void;
-  onSignDocument?: (documentId: string, note?: string) => void;
-  formatDate: (date: string) => string;
-}) {
-  const getSignatureBadgeStyle = (status: SignatureStatus) => {
-    switch (status) {
-      case SignatureStatus.SIGNED:
-        return { background: "#e6f4ea", color: "#137333" };
-      case SignatureStatus.PENDING:
-        return { background: "#fff3e0", color: "#e65100" };
-      default:
-        return { background: "#f1f3f4", color: "#5f6368" };
-    }
-  };
-
-  // Check if current tab is one that allows signature actions
-  const isSigningTab = activeTab === "Compliance Files" || activeTab === "Clinic Notes";
-
-  return (
-    <Card title={activeTab}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
-            {["DOCUMENT", "DATE", "STATUS", "TYPE", "ACTIONS"].map((h, i) => (
-              <th key={h + i} style={{ padding: "8px 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--color-on-surface-variant)", textAlign: i === 4 ? "right" : "left" }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {docs.length === 0 ? (
-            <tr>
-              <td colSpan={5} style={{ padding: 24, textAlign: "center", color: "var(--color-on-surface-variant)" }}>
-                No documents found
-              </td>
-            </tr>
-          ) : (
-            docs.map((d) => (
-              <tr key={d.id} style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
-                <td style={{ padding: "12px", fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: "var(--color-error)" }}>picture_as_pdf</span>{d.name}
-                  </div>
-                </td>
-                <td style={{ padding: "12px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>{formatDate(d.createdAt)}</td>
-                <td style={{ padding: "12px", fontSize: 12, fontWeight: 600 }}>
-                  <span style={{
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                    ...getSignatureBadgeStyle(d.signatureStatus)
-                  }}>
-                    {d.signatureStatus === SignatureStatus.UNSIGNED ? "Unsigned" : d.signatureStatus === SignatureStatus.PENDING ? "Pending" : "Signed"}
-                  </span>
-                </td>
-                <td style={{ padding: "12px", fontSize: 12, fontWeight: 600 }}>
-                  <span style={{
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                    ...getTypeBadgeStyle(d.documentType)
-                  }}>
-                    {d.documentType.replace('_', ' ')}
-                  </span>
-                </td>
-                <td style={{ padding: "12px", textAlign: "right", display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  {/* View icon - always show */}
-                  <span
-                    className="material-symbols-outlined"
-                    style={{
-                      fontSize: 18,
-                      color: "var(--color-on-surface-variant)",
-                      cursor: onViewClick ? "pointer" : "default"
-                    }}
-                    onClick={() => onViewClick?.(d)}
-                    title="View"
-                  >
-                    visibility
-                  </span>
-
-                  {/* Signature actions - only for Compliance and Clinic Notes tabs */}
-                  {isSigningTab && d.signatureStatus === SignatureStatus.UNSIGNED && onMarkPending && (
-                    <button
-                      onClick={() => onMarkPending(d.id)}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 0,
-                      }}
-                      title="Mark as pending"
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: 18, color: "#e65100" }}>schedule</span>
-                    </button>
-                  )}
-                  
-                  {isSigningTab && (d.signatureStatus === SignatureStatus.UNSIGNED || d.signatureStatus === SignatureStatus.PENDING) && onSignDocument && (
-                    <button
-                      onClick={() => onSignDocument(d.id)}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 0,
-                      }}
-                      title="Sign document"
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: 18, color: "#137333" }}>edit_signature</span>
-                    </button>
-                  )}
-
-                  {/* Delete icon - only for non-signing tabs */}
-                  {!isSigningTab && (
-                    <button
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 0,
-                      }}
-                      title="Delete"
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: 18, color: "#b3261e" }}>delete</span>
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
-
-function InfoChip({ icon, text }: { icon: string; text: string }) {
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{icon}</span>{text}
-    </span>
-  );
-}
 
 function HeaderBtn({ icon, label, color, filled, onClick }: { icon: string; label: string; color?: string; filled?: boolean; onClick?: () => void }) {
   return (
@@ -664,5 +452,417 @@ function HeaderBtn({ icon, label, color, filled, onClick }: { icon: string; labe
     >
       <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{icon}</span>{label}
     </button>
+  );
+}
+
+function SidebarBtn({ icon, label, active, onClick }: { icon: string; label: string; active?: boolean; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8,
+        border: "none",
+        background: active ? "var(--color-primary-container)" : "transparent",
+        color: active ? "#ffffff" : "var(--color-on-surface-variant)",
+        fontSize: 14, fontWeight: active ? 600 : 500,
+        cursor: "pointer", transition: "all 0.12s", textAlign: "left", width: "100%"
+      }}
+      onMouseOver={(e) => {
+        if (!active) {
+          e.currentTarget.style.background = "var(--color-surface-container)";
+          e.currentTarget.style.color = "var(--color-on-surface)";
+        }
+      }}
+      onMouseOut={(e) => {
+        if (!active) {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = "var(--color-on-surface-variant)";
+        }
+      }}
+    >
+      <span className="material-symbols-outlined" style={{ fontSize: 20 }}>{icon}</span>{label}
+    </button>
+  );
+}
+
+function SessionTable() {
+  return (
+    <div style={{ background: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)", borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ padding: "16px 20px" }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>Session Table</h3>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ background: "#f8f9fb", borderTop: "1px solid var(--color-outline-variant)", borderBottom: "1px solid var(--color-outline-variant)" }}>
+            {["S/N", "SESSION ID", "SESSION NAME", "DATE & TIME", "LOCATION", "STATUS", "CLINICAL NOTE"].map((h) => (
+              <th key={h} style={{ padding: "12px 20px", fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--color-on-surface-variant)", textAlign: "left" }}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ padding: "16px 20px", fontSize: 13, color: "var(--color-on-surface-variant)", fontWeight: 600 }}>1</td>
+            <td style={{ padding: "16px 20px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>SES-76137</td>
+            <td style={{ padding: "16px 20px", fontSize: 13, color: "var(--color-on-surface)", fontWeight: 600 }}>Cognitive Behavioural Therapy</td>
+            <td style={{ padding: "16px 20px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>Jul 10, 2026 at 04:34 PM</td>
+            <td style={{ padding: "16px 20px", fontSize: 13, color: "var(--color-on-surface-variant)" }}>Telehealth</td>
+            <td style={{ padding: "16px 20px" }}>
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 10px",
+                borderRadius: 12,
+                fontSize: 12,
+                fontWeight: 600,
+                background: "#e8f0fe",
+                color: "#1a73e8"
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#1a73e8" }} />
+                Scheduled
+              </span>
+            </td>
+            <td style={{ padding: "16px 20px" }}>
+              <button style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: "1px solid var(--color-outline-variant)",
+                background: "#f8f9fb",
+                fontSize: 13,
+                fontWeight: 500,
+                color: "var(--color-on-surface-variant)",
+                cursor: "pointer"
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>note_add</span>
+                Empty
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TierUpgradeCard({ featureName, tier }: { featureName: string; tier: number }) {
+  return (
+    <div style={{
+      background: "var(--color-surface-container-lowest)",
+      border: "1px dashed var(--color-outline)",
+      borderRadius: 12,
+      padding: 48,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      textAlign: "center",
+      gap: 16
+    }}>
+      <div style={{
+        width: 64,
+        height: 64,
+        borderRadius: "50%",
+        background: "#fff8e1",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 32, color: "#f57c00" }}>workspace_premium</span>
+      </div>
+
+      <div>
+        <h3 style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px 0", color: "var(--color-on-surface)" }}>
+          {featureName} is a Tier {tier} feature
+        </h3>
+        <p style={{ margin: 0, fontSize: 14, color: "var(--color-on-surface-variant)", maxWidth: 400, lineHeight: 1.5 }}>
+          Upgrade your plan to unlock {featureName.toLowerCase()} and other advanced clinical tools for your practice.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function AppointmentsView({ onSetAppointment }: { onSetAppointment: () => void }) {
+  const upcoming = [
+    { id: 1, date: "Jul 12, 2026 at 10:00 AM", type: "Follow-up Consultation", provider: "Dr. Sarah Jenkins", status: "Confirmed" }
+  ];
+
+  const past = [
+    { id: 2, date: "Jun 15, 2026 at 02:30 PM", type: "Initial Intake", provider: "Dr. Sarah Jenkins", status: "Completed" },
+    { id: 3, date: "May 10, 2026 at 11:00 AM", type: "General Assessment", provider: "Dr. Sarah Jenkins", status: "Completed" }
+  ];
+
+  const AppointmentCard = ({ appt, isPast }: { appt: any, isPast: boolean }) => (
+    <div style={{
+      padding: 16,
+      border: "1px solid var(--color-outline-variant)",
+      borderRadius: 8,
+      background: "var(--color-surface-container-lowest)",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }}>
+      <div>
+        <h4 style={{ margin: "0 0 6px 0", fontSize: 15, color: "var(--color-on-surface)" }}>{appt.type}</h4>
+        <div style={{ display: "flex", gap: 16, fontSize: 13, color: "var(--color-on-surface-variant)" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>calendar_today</span>
+            {appt.date}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>person</span>
+            {appt.provider}
+          </span>
+        </div>
+      </div>
+      <div>
+        <span style={{
+          padding: "4px 10px",
+          borderRadius: 12,
+          fontSize: 12,
+          fontWeight: 600,
+          background: isPast ? "#f1f3f4" : "#e6f4ea",
+          color: isPast ? "#5f6368" : "#137333"
+        }}>
+          {appt.status}
+        </span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+
+      {/* Header and Button */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-surface-container-lowest)", padding: "16px 20px", border: "1px solid var(--color-outline-variant)", borderRadius: 12 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>Appointments</h3>
+        <button
+          onClick={onSetAppointment}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
+            border: "none", background: "var(--color-primary)", color: "#ffffff",
+            fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "opacity 0.2s"
+          }}
+          onMouseOver={(e) => e.currentTarget.style.opacity = "0.9"}
+          onMouseOut={(e) => e.currentTarget.style.opacity = "1"}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
+          Set Appointment
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Upcoming */}
+        <div>
+          <h4 style={{ fontSize: 12, fontWeight: 700, color: "var(--color-on-surface-variant)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em", paddingLeft: 4 }}>Upcoming Appointments</h4>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {upcoming.map(appt => <AppointmentCard key={appt.id} appt={appt} isPast={false} />)}
+          </div>
+        </div>
+
+        {/* Past */}
+        <div>
+          <h4 style={{ fontSize: 12, fontWeight: 700, color: "var(--color-on-surface-variant)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em", paddingLeft: 4 }}>Past Appointments</h4>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {past.map(appt => <AppointmentCard key={appt.id} appt={appt} isPast={true} />)}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+function TreatmentPlanView({ onSetPlan }: { onSetPlan: () => void }) {
+  const activePlans = [
+    { id: 1, date: "Jul 12, 2026", type: "Cognitive Behavioral Therapy Plan", provider: "Dr. Sarah Jenkins", status: "Active" }
+  ];
+
+  const completedPlans = [
+    { id: 2, date: "Jun 15, 2026", type: "Initial 30-Day Plan", provider: "Dr. Sarah Jenkins", status: "Completed" },
+  ];
+
+  const PlanCard = ({ plan, isPast }: { plan: any, isPast: boolean }) => (
+    <div style={{
+      padding: 16,
+      border: "1px solid var(--color-outline-variant)",
+      borderRadius: 8,
+      background: "var(--color-surface-container-lowest)",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }}>
+      <div>
+        <h4 style={{ margin: "0 0 6px 0", fontSize: 15, color: "var(--color-on-surface)" }}>{plan.type}</h4>
+        <div style={{ display: "flex", gap: 16, fontSize: 13, color: "var(--color-on-surface-variant)" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>calendar_today</span>
+            {plan.date}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>person</span>
+            {plan.provider}
+          </span>
+        </div>
+      </div>
+      <div>
+        <span style={{
+          padding: "4px 10px",
+          borderRadius: 12,
+          fontSize: 12,
+          fontWeight: 600,
+          background: isPast ? "#f1f3f4" : "#e6f4ea",
+          color: isPast ? "#5f6368" : "#137333"
+        }}>
+          {plan.status}
+        </span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+
+      {/* Header and Button */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-surface-container-lowest)", padding: "16px 20px", border: "1px solid var(--color-outline-variant)", borderRadius: 12 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>Treatment Plans</h3>
+        <button
+          onClick={onSetPlan}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
+            border: "none", background: "var(--color-primary)", color: "#ffffff",
+            fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "opacity 0.2s"
+          }}
+          onMouseOver={(e) => e.currentTarget.style.opacity = "0.9"}
+          onMouseOut={(e) => e.currentTarget.style.opacity = "1"}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
+          Create Treatment Plan
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Active */}
+        <div>
+          <h4 style={{ fontSize: 12, fontWeight: 700, color: "var(--color-on-surface-variant)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em", paddingLeft: 4 }}>Active Treatment Plans</h4>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {activePlans.map(plan => <PlanCard key={plan.id} plan={plan} isPast={false} />)}
+          </div>
+        </div>
+
+        {/* Completed */}
+        <div>
+          <h4 style={{ fontSize: 12, fontWeight: 700, color: "var(--color-on-surface-variant)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em", paddingLeft: 4 }}>Completed Treatment Plans</h4>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {completedPlans.map(plan => <PlanCard key={plan.id} plan={plan} isPast={true} />)}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+function OverviewView() {
+  const notesReadyForReview = [
+    { id: "SES-76137", title: "Cognitive Behavioural Therapy", date: "Jul 10, 2026", provider: "Dr. Sarah Jenkins" }
+  ];
+
+  const nextAppointment = {
+    date: "Jul 12, 2026 at 10:00 AM",
+    type: "Follow-up Consultation",
+    provider: "Dr. Sarah Jenkins",
+    location: "Telehealth"
+  };
+
+  const lastSession = {
+    id: "SES-76136",
+    title: "Initial Assessment",
+    date: "Jun 15, 2026",
+    status: "Signed",
+    provider: "Dr. Sarah Jenkins"
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+      {/* Notes Ready For Review */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>Notes Ready for Review</h3>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {notesReadyForReview.map((note, i) => (
+            <div key={i} style={{ padding: 16, border: "1px solid var(--color-outline-variant)", borderRadius: 8, background: "var(--color-surface-container-lowest)", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+              <div>
+                <h4 style={{ margin: "0 0 6px 0", fontSize: 15, color: "var(--color-on-surface)" }}>{note.title} <span style={{ fontSize: 13, color: "var(--color-on-surface-variant)", fontWeight: 500 }}>({note.id})</span></h4>
+                <div style={{ display: "flex", gap: 16, fontSize: 13, color: "var(--color-on-surface-variant)" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span className="material-symbols-outlined" style={{ fontSize: 16 }}>calendar_today</span>{note.date}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span className="material-symbols-outlined" style={{ fontSize: 16 }}>person</span>{note.provider}</span>
+                </div>
+              </div>
+              <button style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--color-primary)", background: "var(--color-primary)", color: "#ffffff", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "opacity 0.2s" }} onMouseOver={(e) => e.currentTarget.style.opacity = "0.9"} onMouseOut={(e) => e.currentTarget.style.opacity = "1"}>
+                Review & Sign
+              </button>
+            </div>
+          ))}
+          {notesReadyForReview.length === 0 && (
+            <div style={{ padding: 24, textAlign: "center", border: "1px dashed var(--color-outline)", borderRadius: 8, color: "var(--color-on-surface-variant)", fontSize: 14 }}>
+              No notes pending review.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        {/* Next Appointment */}
+        <div style={{ padding: 24, border: "1px solid var(--color-outline-variant)", borderRadius: 12, background: "var(--color-surface-container-lowest)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ background: "#e8f0fe", color: "#1a73e8", width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>calendar_month</span>
+            </div>
+            <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--color-on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Next Appointment</h3>
+          </div>
+          {nextAppointment ? (
+            <div>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, color: "var(--color-on-surface)" }}>{nextAppointment.type}</h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--color-on-surface-variant)" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="material-symbols-outlined" style={{ fontSize: 18 }}>schedule</span>{nextAppointment.date}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="material-symbols-outlined" style={{ fontSize: 18 }}>person</span>{nextAppointment.provider}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="material-symbols-outlined" style={{ fontSize: 18 }}>videocam</span>{nextAppointment.location}</span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ color: "var(--color-on-surface-variant)", fontSize: 14, paddingTop: 8 }}>No upcoming appointments.</div>
+          )}
+        </div>
+
+        {/* Last Session */}
+        <div style={{ padding: 24, border: "1px solid var(--color-outline-variant)", borderRadius: 12, background: "var(--color-surface-container-lowest)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ background: "#e6f4ea", color: "#137333", width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>history</span>
+            </div>
+            <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--color-on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Last Session</h3>
+          </div>
+          {lastSession ? (
+            <div>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, color: "var(--color-on-surface)" }}>{lastSession.title}</h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--color-on-surface-variant)" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="material-symbols-outlined" style={{ fontSize: 18 }}>tag</span>{lastSession.id}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="material-symbols-outlined" style={{ fontSize: 18 }}>calendar_today</span>{lastSession.date}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="material-symbols-outlined" style={{ fontSize: 18, color: "#137333" }}>check_circle</span><span style={{ color: "var(--color-on-surface)", fontWeight: 500 }}>{lastSession.status}</span></span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ color: "var(--color-on-surface-variant)", fontSize: 14, paddingTop: 8 }}>No previous sessions.</div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

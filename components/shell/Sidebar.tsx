@@ -23,6 +23,7 @@ const NAV_ITEMS = [
    – Dark navy background with white text
    – Active item gets a lighter blue highlight pill
    – "End Session" button at the bottom
+   – Collapses and reopens on hover
 ══════════════════════════════════════════════════════════════════════════ */
 export default function Sidebar({
   isOpen,
@@ -32,6 +33,7 @@ export default function Sidebar({
   onClose: () => void;
 }) {
   const pathname = usePathname();
+  const [isHovered, setIsHovered] = React.useState(false);
 
   return (
     <>
@@ -52,8 +54,10 @@ export default function Sidebar({
 
       {/* ── Sidebar panel ──────────────────────────────────────────────── */}
       <aside
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         style={{
-          width: 240,
+          width: isHovered ? 240 : 72,
           height: "100vh",
           display: "flex",
           flexDirection: "column",
@@ -62,10 +66,12 @@ export default function Sidebar({
           position: "sticky",
           top: 0,
           zIndex: 50,
+          transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+          overflow: "hidden",
         }}
         className="hidden lg:flex"
       >
-        <SidebarInner pathname={pathname} />
+        <SidebarInner pathname={pathname} isCollapsed={!isHovered} />
       </aside>
 
       {/* ── Mobile drawer ──────────────────────────────────────────────── */}
@@ -81,18 +87,18 @@ export default function Sidebar({
           transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
-        <SidebarInner pathname={pathname} />
+        <SidebarInner pathname={pathname} isCollapsed={false} />
       </aside>
     </>
   );
 }
 
 /* ── Inner contents (shared between desktop & mobile) ──────────────── */
-function SidebarInner({ pathname }: { pathname: string }) {
+function SidebarInner({ pathname, isCollapsed }: { pathname: string, isCollapsed?: boolean }) {
   return (
     <div
       style={{
-        width: 240,
+        width: 240, // Keeps internal content at fixed width to prevent wrapping during transition
         height: "100%",
         display: "flex",
         flexDirection: "column",
@@ -106,31 +112,53 @@ function SidebarInner({ pathname }: { pathname: string }) {
           padding: "28px 24px 20px",
           borderBottom: "1px solid rgba(255,255,255,0.08)",
           flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
         }}
       >
-        <h1
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            color: "#ffffff",
-            letterSpacing: "-0.01em",
-            lineHeight: "24px",
-            margin: 0,
-          }}
-        >
-          BrightLife EHR
-        </h1>
-        <p
-          style={{
-            fontSize: 13,
-            fontWeight: 400,
-            color: "rgba(255,255,255,0.50)",
-            lineHeight: "18px",
-            marginTop: 2,
-          }}
-        >
-          Clinical Dashboard
-        </p>
+        <div style={{
+           width: 24,
+           height: 24,
+           borderRadius: 6,
+           background: "var(--color-primary)",
+           display: "flex",
+           alignItems: "center",
+           justifyContent: "center",
+           flexShrink: 0,
+           marginLeft: -4
+        }}>
+           <span className="material-symbols-outlined" style={{ color: "#fff", fontSize: 16 }}>local_hospital</span>
+        </div>
+        <div style={{
+           opacity: isCollapsed ? 0 : 1,
+           transition: "opacity 0.2s ease",
+           whiteSpace: "nowrap"
+        }}>
+          <h1
+            style={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: "#ffffff",
+              letterSpacing: "-0.01em",
+              lineHeight: "24px",
+              margin: 0,
+            }}
+          >
+            BrightLife EHR
+          </h1>
+          <p
+            style={{
+              fontSize: 13,
+              fontWeight: 400,
+              color: "rgba(255,255,255,0.50)",
+              lineHeight: "18px",
+              marginTop: 2,
+            }}
+          >
+            Clinical Dashboard
+          </p>
+        </div>
       </div>
 
       {/* ── Nav items ──────────────────────────────────────────────────── */}
@@ -161,6 +189,7 @@ function SidebarInner({ pathname }: { pathname: string }) {
                 textDecoration: "none",
                 backgroundColor: isActive ? "#1a4a7a" : "transparent",
                 transition: "background 0.15s ease",
+                whiteSpace: "nowrap",
               }}
               onMouseOver={(e) => {
                 if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)";
@@ -184,7 +213,8 @@ function SidebarInner({ pathname }: { pathname: string }) {
                   fontSize: 14,
                   fontWeight: isActive ? 600 : 400,
                   color: isActive ? "#ffffff" : "rgba(255,255,255,0.70)",
-                  whiteSpace: "nowrap",
+                  opacity: isCollapsed ? 0 : 1,
+                  transition: "opacity 0.2s ease",
                 }}
               >
                 {item.label}
@@ -210,9 +240,9 @@ function SidebarInner({ pathname }: { pathname: string }) {
             width: "100%",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            padding: "12px 16px",
+            justifyContent: "flex-start",
+            gap: 12,
+            padding: "12px 14px",
             borderRadius: 8,
             border: "none",
             background: "rgba(186, 26, 26, 0.15)",
@@ -221,14 +251,15 @@ function SidebarInner({ pathname }: { pathname: string }) {
             fontWeight: 600,
             cursor: "pointer",
             transition: "background 0.15s ease",
+            whiteSpace: "nowrap",
           }}
           onMouseOver={(e) => (e.currentTarget.style.background = "rgba(186, 26, 26, 0.25)")}
           onMouseOut={(e) => (e.currentTarget.style.background = "rgba(186, 26, 26, 0.15)")}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 20, flexShrink: 0 }}>
             logout
           </span>
-          End Session
+          <span style={{ opacity: isCollapsed ? 0 : 1, transition: "opacity 0.2s ease" }}>End Session</span>
         </button>
       </div>
     </div>
