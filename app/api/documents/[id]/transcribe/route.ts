@@ -18,6 +18,8 @@ export async function POST(
     }
 
     const { id } = await params;
+    const url = new URL(request.url);
+    const force = url.searchParams.get("force") === "true";
 
     // Find the document in the database
     const document = await prisma.document.findFirst({
@@ -35,8 +37,8 @@ export async function POST(
       return NextResponse.json({ message: "Document is not an audio file" }, { status: 400 });
     }
 
-    // If transcript already exists, just return it to save API cost
-    if (document.transcript) {
+    // If transcript already exists and we are not forcing regeneration, just return it to save API cost
+    if (document.transcript && !force) {
       return NextResponse.json({ transcript: document.transcript }, { status: 200 });
     }
 

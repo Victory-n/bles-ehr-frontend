@@ -4,7 +4,7 @@ import React, { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { DocumentType } from "@prisma/client";
 
-const TABS = ["Overview", "Session", "Treatment Plan", "Diagnosis", "Appointments", "Compliance", "Clinic Notes", "General Documents", "Billing Records"] as const;
+const TABS = ["Overview", "Session", "Treatment Plan", "Diagnosis", "Appointments", "Medications & Allergies", "Compliance", "Clinic Notes", "General Documents", "Billing Records"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ClinicNotesDetailPage() {
@@ -15,6 +15,7 @@ export default function ClinicNotesDetailPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [isTreatmentPlanModalOpen, setIsTreatmentPlanModalOpen] = useState(false);
+  const [isMedicationModalOpen, setIsMedicationModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
@@ -71,7 +72,7 @@ export default function ClinicNotesDetailPage() {
 
       {/* --- Breadcrumb ------------------------------------------------ */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--color-on-surface-variant)", marginBottom: 8 }}>
-        <span style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => router.push("/clinic-notes")}>Clinic Notes</span>
+        <span style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => router.push("/clinic-notes")}>Folders</span>
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>chevron_right</span>
         <span style={{ fontWeight: 600, color: "var(--color-on-surface)" }}>{notesId}</span>
       </div>
@@ -119,6 +120,12 @@ export default function ClinicNotesDetailPage() {
                 onClick={() => setActiveTab("Appointments")}
                 icon="calendar_today"
                 label="Appointments"
+              />
+              <SidebarBtn
+                active={activeTab === "Medications & Allergies"}
+                onClick={() => setActiveTab("Medications & Allergies")}
+                icon="medication"
+                label="Medications & Allergies"
               />
             </div>
           </div>
@@ -170,6 +177,7 @@ export default function ClinicNotesDetailPage() {
           {activeTab === "Treatment Plan" && <TreatmentPlanView onSetPlan={() => setIsTreatmentPlanModalOpen(true)} />}
           {activeTab === "Diagnosis" && <TierUpgradeCard featureName="Diagnosis" tier={3} />}
           {activeTab === "Appointments" && <AppointmentsView onSetAppointment={() => setIsAppointmentModalOpen(true)} />}
+          {activeTab === "Medications & Allergies" && <MedicationsAndAllergiesView onAddMedication={() => setIsMedicationModalOpen(true)} />}
           {activeTab === "Compliance" && <TierUpgradeCard featureName="Compliance" tier={3} />}
           {activeTab === "Billing Records" && <TierUpgradeCard featureName="Billing Records" tier={2} />}
 
@@ -416,6 +424,138 @@ export default function ClinicNotesDetailPage() {
                 >
                   Create
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- Medication modal ---------------------------------------------- */}
+      {isMedicationModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
+          <div style={{ background: 'var(--color-surface-container-lowest)', borderRadius: 12, padding: 24, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ fontSize: 20, fontWeight: 700, margin: 0, marginBottom: 24 }}>Add Medication</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              showToast("Medication successfully added!", "success");
+              setIsMedicationModalOpen(false);
+            }}>
+
+              {/* Medication Input */}
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 600 }}>Medication *</label>
+                <input type="text" required style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }} />
+                <div style={{ fontSize: 12, color: 'var(--color-on-surface-variant)', marginTop: 6 }}>Search, then select the specific form and strength</div>
+              </div>
+
+              {/* Dosage Instructions */}
+              <h4 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px 0', color: 'var(--color-on-surface)' }}>Dosage Instructions</h4>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div style={{ position: 'relative' }}>
+                  <label style={{ position: 'absolute', top: -8, left: 12, background: 'var(--color-surface-container-lowest)', padding: '0 4px', fontSize: 12, color: 'var(--color-on-surface-variant)' }}>Dose</label>
+                  <input type="text" defaultValue="-" style={{ width: '100%', padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }} />
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <label style={{ position: 'absolute', top: -8, left: 12, background: 'var(--color-surface-container-lowest)', padding: '0 4px', fontSize: 12, color: 'var(--color-on-surface-variant)' }}>Unit</label>
+                  <select style={{ width: '100%', padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14, appearance: 'none', background: 'transparent' }}>
+                    <option value=""></option>
+                    <option value="tablet">tablet</option>
+                    <option value="capsule">capsule</option>
+                    <option value="mg">mg</option>
+                    <option value="ml">ml</option>
+                    <option value="gram">gram</option>
+                    <option value="puff">puff</option>
+                    <option value="patch">patch</option>
+                    <option value="drop">drop</option>
+                    <option value="spray">spray</option>
+                  </select>
+                  <span className="material-symbols-outlined" style={{ position: 'absolute', right: 12, top: 12, fontSize: 20, pointerEvents: 'none', color: 'var(--color-on-surface-variant)' }}>arrow_drop_down</span>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <label style={{ position: 'absolute', top: -8, left: 12, background: 'var(--color-surface-container-lowest)', padding: '0 4px', fontSize: 12, color: 'var(--color-on-surface-variant)' }}>Route</label>
+                  <select style={{ width: '100%', padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14, appearance: 'none', background: 'transparent' }}>
+                    <option value=""></option>
+                    <option value="oral">oral</option>
+                    <option value="topical">topical</option>
+                    <option value="inhalation">inhalation</option>
+                    <option value="injection">injection</option>
+                    <option value="intravenous">intravenous</option>
+                    <option value="intramuscular">intramuscular</option>
+                    <option value="nasal">nasal</option>
+                    <option value="ophthalmic">ophthalmic</option>
+                    <option value="otic">otic</option>
+                    <option value="rectal">rectal</option>
+                    <option value="subcutaneous">subcutaneous</option>
+                    <option value="sublingual">sublingual</option>
+                    <option value="transdermal">transdermal</option>
+                    <option value="vaginal">vaginal</option>
+                  </select>
+                  <span className="material-symbols-outlined" style={{ position: 'absolute', right: 12, top: 12, fontSize: 20, pointerEvents: 'none', color: 'var(--color-on-surface-variant)' }}>arrow_drop_down</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div style={{ position: 'relative' }}>
+                  <label style={{ position: 'absolute', top: -8, left: 12, background: 'var(--color-surface-container-lowest)', padding: '0 4px', fontSize: 12, color: 'var(--color-on-surface-variant)' }}>Frequency</label>
+                  <select style={{ width: '100%', padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14, appearance: 'none', background: 'transparent' }}>
+                    <option value=""></option>
+                    <option value="once a day">once a day</option>
+                    <option value="twice a day">twice a day</option>
+                    <option value="thrice a day">thrice a day</option>
+                    <option value="four times a day">four times a day</option>
+                    <option value="every 4 hours">every 4 hours</option>
+                    <option value="every 6 hours">every 6 hours</option>
+                    <option value="every 8 hours">every 8 hours</option>
+                    <option value="every 12 hours">every 12 hours</option>
+                    <option value="at bedtime">at bedtime</option>
+                    <option value="in the morning">in the morning</option>
+                    <option value="in the afternoon">in the afternoon</option>
+                    <option value="in the evening">in the evening</option>
+                    <option value="as needed">as needed</option>
+                    <option value="every day">every day</option>
+                    <option value="every week">every week</option>
+                    <option value="every month">every month</option>
+                    <option value="every year">every year</option>
+                  </select>
+                  <span className="material-symbols-outlined" style={{ position: 'absolute', right: 12, top: 12, fontSize: 20, pointerEvents: 'none', color: 'var(--color-on-surface-variant)' }}>arrow_drop_down</span>
+                </div>
+                <div>
+                  <input type="text" placeholder="Duration (days)" style={{ width: '100%', padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <input type="text" placeholder="Quantity" style={{ width: '100%', padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <input type="text" placeholder="Refills" style={{ width: '100%', padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14 }} />
+                </div>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                  <label style={{ fontSize: 14, color: 'var(--color-on-surface-variant)', lineHeight: 1.2 }}>PRN (As<br />Needed)</label>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 24 }}>
+                <textarea placeholder="Additional Instructions" rows={3} style={{ width: '100%', padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14, resize: 'vertical' }} />
+              </div>
+
+              <div style={{ marginBottom: 32, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input type="checkbox" defaultChecked style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                <label style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-on-surface-variant)' }}>Currently Taking</label>
+              </div>
+
+              {/* Notes */}
+              <h4 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px 0', color: 'var(--color-on-surface)' }}>Notes</h4>
+              <div style={{ marginBottom: 32 }}>
+                <textarea placeholder="Internal Comment" rows={3} style={{ width: '100%', padding: '12px', border: '1px solid var(--color-outline-variant)', borderRadius: 8, fontSize: 14, resize: 'vertical' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 16, borderTop: '1px solid var(--color-outline-variant)' }}>
+                <button type="button" onClick={() => setIsMedicationModalOpen(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--color-outline-variant)', background: 'transparent', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: '#ffffff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Save</button>
               </div>
             </form>
           </div>
@@ -861,6 +1001,81 @@ function OverviewView() {
           ) : (
             <div style={{ color: "var(--color-on-surface-variant)", fontSize: 14, paddingTop: 8 }}>No previous sessions.</div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MedicationsAndAllergiesView({ onAddMedication }: { onAddMedication: () => void }) {
+  const activeMedications = [
+    { id: 1, name: "Lisinopril 10mg", dose: "1 tablet", frequency: "Daily", status: "Active" }
+  ];
+
+  const MedicationCard = ({ med }: { med: any }) => (
+    <div style={{
+      padding: 16,
+      border: "1px solid var(--color-outline-variant)",
+      borderRadius: 8,
+      background: "var(--color-surface-container-lowest)",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }}>
+      <div>
+        <h4 style={{ margin: "0 0 6px 0", fontSize: 15, color: "var(--color-on-surface)" }}>{med.name}</h4>
+        <div style={{ display: "flex", gap: 16, fontSize: 13, color: "var(--color-on-surface-variant)" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>medication</span>
+            {med.dose}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>update</span>
+            {med.frequency}
+          </span>
+        </div>
+      </div>
+      <div>
+        <span style={{
+          padding: "4px 10px",
+          borderRadius: 12,
+          fontSize: 12,
+          fontWeight: 600,
+          background: "#e6f4ea",
+          color: "#137333"
+        }}>
+          {med.status}
+        </span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+      {/* Header and Button */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-surface-container-lowest)", padding: "16px 20px", border: "1px solid var(--color-outline-variant)", borderRadius: 12 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>Medications & Allergies</h3>
+        <button
+          onClick={onAddMedication}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8,
+            border: "none", background: "var(--color-primary)", color: "#ffffff",
+            fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "opacity 0.2s"
+          }}
+          onMouseOver={(e) => e.currentTarget.style.opacity = "0.9"}
+          onMouseOut={(e) => e.currentTarget.style.opacity = "1"}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
+          Add Medication
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div>
+          <h4 style={{ fontSize: 12, fontWeight: 700, color: "var(--color-on-surface-variant)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em", paddingLeft: 4 }}>Active Medications</h4>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {activeMedications.map(med => <MedicationCard key={med.id} med={med} />)}
+          </div>
         </div>
       </div>
     </div>
