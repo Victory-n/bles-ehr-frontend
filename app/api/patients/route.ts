@@ -113,6 +113,10 @@ export async function GET() {
             lastname: true,
           },
         },
+        folders: {
+          where: { type: "PARENT" },
+          select: { folderId: true }
+        }
       },
     });
 

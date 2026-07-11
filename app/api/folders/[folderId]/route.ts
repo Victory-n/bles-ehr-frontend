@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/guards';
 import { prisma } from '@/lib/prisma';
+import { folderService } from '@/lib/services/folderService';
 import { hasPermission, PERMISSION_LEVELS } from '@/lib/auth/permissions';
 import { storageService } from '@/lib/storage';
 import { getSupabase } from '@/lib/supabase';
@@ -18,16 +19,99 @@ export async function GET(
     }
 
     // Find the folder by folderId (not the UUID id)
-    const folder = await prisma.folder.findUnique({
+    let folder = await prisma.folder.findUnique({
       where: { folderId },
       include: {
-        patient: true,
+        patient: {
+          include: {
+            staff: {
+              select: {
+                id: true,
+                firstname: true,
+                lastname: true,
+              },
+            },
+            patientPrograms: {
+              include: {
+                program: true
+              }
+            }
+          },
+        },
         documents: {
           where: { deletedAt: null },
           orderBy: { createdAt: 'desc' }
         }
       }
     });
+
+    if (!folder) {
+      // Try to find by patient ID or patient UUID
+      const patient = await prisma.patient.findFirst({
+        where: {
+          OR: [{ id: folderId }, { patientId: folderId }]
+        }
+      });
+      if (patient) {
+        // Find their PARENT folder
+        let parentFolder = await prisma.folder.findFirst({
+          where: { patientId: patient.id, type: "PARENT", deletedAt: null },
+          include: {
+            patient: {
+              include: {
+                staff: {
+                  select: {
+                    id: true,
+                    firstname: true,
+                    lastname: true,
+                  },
+                },
+                patientPrograms: {
+                  include: {
+                    program: true
+                  }
+                }
+              },
+            },
+            documents: {
+              where: { deletedAt: null },
+              orderBy: { createdAt: 'desc' }
+            }
+          }
+        });
+
+        if (!parentFolder) {
+          // Self-heal: create folders if missing
+          const { parent } = await folderService.createPatientFolders(patient.id, user.id);
+          parentFolder = await prisma.folder.findUnique({
+            where: { id: parent.id },
+            include: {
+              patient: {
+                include: {
+                  staff: {
+                    select: {
+                      id: true,
+                      firstname: true,
+                      lastname: true,
+                    },
+                  },
+                  patientPrograms: {
+                    include: {
+                      program: true
+                    }
+                  }
+                },
+              },
+              documents: {
+                where: { deletedAt: null },
+                orderBy: { createdAt: 'desc' }
+              }
+            }
+          });
+        }
+        folder = parentFolder;
+      }
+    }
 
     if (!folder) {
       return NextResponse.json({ message: 'Folder not found' }, { status: 404 });

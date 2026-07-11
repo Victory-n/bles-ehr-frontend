@@ -25,6 +25,7 @@ interface Patient {
     emergencyContact: { name?: string; relationship?: string; phone?: string };
     intakeNotes: { diagnosis?: string; notes?: string };
     createdAt: string;
+    folders?: Array<{ folderId: string }>;
 }
 
 const STATUS_STYLES: Record<PatientStatus, { bg: string; color: string; dot: string; label: string }> = {
@@ -280,6 +281,10 @@ export default function PatientsPage() {
                             <tr><td colSpan={5} style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 14 }}>No patients found.</td></tr>
                         ) : paginated.map((p, i) => {
                             const st = STATUS_STYLES[p.status] ?? STATUS_STYLES.Pending;
+                            const folderId = p.folders?.[0]?.folderId;
+                            const handleRowClick = () => {
+                                router.push(`/clinic-notes/${folderId || p.patientId}`);
+                            };
                             return (
                                 <tr
                                     key={p.id}
@@ -288,6 +293,7 @@ export default function PatientsPage() {
                                         transition: "background 0.12s",
                                         cursor: "pointer",
                                     }}
+                                    onClick={handleRowClick}
                                     onMouseOver={(e) => (e.currentTarget.style.background = "var(--color-surface-container-low)")}
                                     onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
                                 >
@@ -321,9 +327,9 @@ export default function PatientsPage() {
                                         </span>
                                     </td>
                                     {/* Action */}
-                                    <td style={{ padding: "14px 20px", textAlign: "right" }}>
+                                    <td style={{ padding: "14px 20px", textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
                                         <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                                            <ActionBtn icon="visibility" title="View" onClick={() => router.push(`/patients/${p.patientId}`)} />
+                                            <ActionBtn icon="visibility" title="View" onClick={handleRowClick} />
                                         </div>
                                     </td>
                                 </tr>

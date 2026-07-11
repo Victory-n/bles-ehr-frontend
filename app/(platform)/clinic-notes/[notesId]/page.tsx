@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { DocumentType } from "@prisma/client";
+import PatientFormModal from "@/components/patients/PatientFormModal";
 
-const TABS = ["Overview", "Session", "Treatment Plan", "Diagnosis", "Appointments", "Medications & Allergies", "Compliance", "Clinic Notes", "General Documents", "Billing Records"] as const;
+const TABS = ["Overview", "Profile", "Session", "Treatment Plan", "Diagnosis", "Appointments", "Medications & Allergies", "Compliance", "Clinic Notes", "General Documents", "Billing Records"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ClinicNotesDetailPage() {
@@ -16,6 +17,30 @@ export default function ClinicNotesDetailPage() {
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [isTreatmentPlanModalOpen, setIsTreatmentPlanModalOpen] = useState(false);
   const [isMedicationModalOpen, setIsMedicationModalOpen] = useState(false);
+  const [patient, setPatient] = useState<any>(null);
+  const [loadingPatient, setLoadingPatient] = useState(true);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  const fetchFolder = useCallback(async () => {
+    try {
+      setLoadingPatient(true);
+      const res = await fetch(`/api/folders/${notesId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPatient(data.patient);
+      }
+    } catch (err) {
+      console.error("Error loading folder details:", err);
+    } finally {
+      setLoadingPatient(false);
+    }
+  }, [notesId]);
+
+  useEffect(() => {
+    if (notesId) {
+      fetchFolder();
+    }
+  }, [notesId, fetchFolder]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
@@ -50,6 +75,14 @@ export default function ClinicNotesDetailPage() {
     }
   };
 
+  const displayName = patient ? `${patient.lastname}, ${patient.firstname}` : "";
+  const dob = patient && patient.dateOfBirth ? new Date(patient.dateOfBirth) : null;
+  const dobStr = dob ? dob.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }) : "—";
+  const age = dob ? Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+
+  const statusColor = patient && patient.status === "Active" ? "#137333" : patient && patient.status === "Inactive" ? "#b3261e" : "#5f6368";
+  const statusBg = patient && patient.status === "Active" ? "#e6f4ea" : patient && patient.status === "Inactive" ? "#fce8e8" : "#f1f3f4";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
@@ -74,8 +107,45 @@ export default function ClinicNotesDetailPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--color-on-surface-variant)", marginBottom: 8 }}>
         <span style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => router.push("/clinic-notes")}>Folders</span>
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>chevron_right</span>
-        <span style={{ fontWeight: 600, color: "var(--color-on-surface)" }}>{notesId}</span>
+        <span style={{ fontWeight: 600, color: "var(--color-on-surface)" }}>
+          {patient ? `${patient.lastname}, ${patient.firstname} (${notesId})` : notesId}
+        </span>
       </div>
+
+      {/* --- Patient Header Card ---------------------------------------- */}
+      {patient && (
+        <div style={{ background: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)", borderRadius: 12, padding: 24, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginBottom: 8 }}>
+          {/* Avatar */}
+          <div style={{ width: 72, height: 72, borderRadius: 12, background: "var(--color-primary-container)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 36, color: "#ffffff" }}>person</span>
+          </div>
+
+          {/* Info */}
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>{displayName}</h2>
+              <span className="material-symbols-outlined icon-fill" style={{ fontSize: 18, color: "var(--color-secondary)" }}>verified</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", fontSize: 13, color: "var(--color-on-surface-variant)" }}>
+              <InfoChip icon="cake" text={`DOB: ${dobStr} (${age !== null ? `${age}y` : "—"})`} />
+              <InfoChip icon="badge" text={`ID: ${patient.patientId}`} />
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, background: statusBg, color: statusColor }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor }} />{patient.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
+            <HeaderBtn icon="note_add" label="Add Clinic Note" onClick={() => router.push(`/clinic-notes/${notesId}/new`)} />
+            <HeaderBtn icon="mic" label="Start recording" onClick={() => { }} />
+            <HeaderBtn icon="upload_file" label="Upload File" filled color="var(--color-secondary)" onClick={handleUploadClick} />
+            <HeaderBtn icon="edit" label="Edit Profile" onClick={() => setShowEditModal(true)} />
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 32, alignItems: "start" }}>
 
@@ -90,6 +160,12 @@ export default function ClinicNotesDetailPage() {
                 onClick={() => setActiveTab("Overview")}
                 icon="dashboard"
                 label="Overview"
+              />
+              <SidebarBtn
+                active={activeTab === "Profile"}
+                onClick={() => setActiveTab("Profile")}
+                icon="person"
+                label="Profile"
               />
             </div>
           </div>
@@ -165,14 +241,10 @@ export default function ClinicNotesDetailPage() {
         {/* --- Right Main Content Area -------------------------------- */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-          {/* Top Action Buttons */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <HeaderBtn icon="note_add" label="Add Clinic Note" onClick={() => router.push(`/clinic-notes/${notesId}/new`)} />
-            <HeaderBtn icon="mic" label="Start recording" onClick={() => { }} />
-            <HeaderBtn icon="upload_file" label="Upload File" filled color="var(--color-secondary)" onClick={handleUploadClick} />
-          </div>
+          {/* Top Action Buttons moved to Patient Header Card */}
 
           {activeTab === "Overview" && <OverviewView />}
+          {activeTab === "Profile" && <ProfileView patient={patient} loading={loadingPatient} />}
           {activeTab === "Session" && <SessionTable />}
           {activeTab === "Treatment Plan" && <TreatmentPlanView onSetPlan={() => setIsTreatmentPlanModalOpen(true)} />}
           {activeTab === "Diagnosis" && <TierUpgradeCard featureName="Diagnosis" tier={3} />}
@@ -560,6 +632,33 @@ export default function ClinicNotesDetailPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* --- Edit Patient Modal ------------------------------------------- */}
+      {showEditModal && patient && (
+        <PatientFormModal
+          mode="edit"
+          editPatientId={patient.id}
+          initialData={{
+            firstName: patient.firstname,
+            lastName: patient.lastname,
+            dob: patient.dateOfBirth ? new Date(patient.dateOfBirth).toISOString().split("T")[0] : "",
+            gender: patient.gender,
+            diagnosis: patient.intakeNotes?.diagnosis || "",
+            provider: patient.staffId || "none",
+            phone: patient.contactInformation?.phone || "",
+            email: patient.contactInformation?.email || "",
+            address: patient.contactInformation?.address || "",
+            city: patient.contactInformation?.city || "",
+            zip: patient.contactInformation?.zip || "",
+            emergencyName: patient.emergencyContact?.name || "",
+            emergencyRelationship: patient.emergencyContact?.relationship || "",
+            emergencyPhone: patient.emergencyContact?.phone || "",
+            notes: patient.intakeNotes?.notes || "",
+          }}
+          onClose={() => setShowEditModal(false)}
+          onSave={() => fetchFolder()}
+        />
       )}
     </div>
   );
@@ -1079,5 +1178,132 @@ function MedicationsAndAllergiesView({ onAddMedication }: { onAddMedication: () 
         </div>
       </div>
     </div>
+  );
+}
+
+function ProfileView({ patient, loading }: { patient: any; loading: boolean }) {
+  if (loading) {
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+        padding: "80px 24px", background: "var(--color-surface-container-lowest)",
+        border: "1px solid var(--color-outline-variant)", borderRadius: 12,
+      }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 24, color: "var(--color-primary-container)", animation: "spin 1s linear infinite" }}>progress_activity</span>
+        <span style={{ fontSize: 15, fontWeight: 500, color: "var(--color-on-surface-variant)" }}>Loading profile data...</span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!patient) {
+    return (
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
+        padding: "80px 24px", background: "var(--color-surface-container-lowest)",
+        border: "1px solid var(--color-outline-variant)", borderRadius: 12,
+      }}>
+        <span className="material-symbols-outlined icon-fill" style={{ fontSize: 48, color: "var(--color-error)" }}>error</span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: "var(--color-on-surface)" }}>Patient profile not found.</span>
+      </div>
+    );
+  }
+
+  const contact = patient.contactInformation ?? {};
+  const emergency = patient.emergencyContact ?? {};
+  const intake = patient.intakeNotes ?? {};
+  
+  const emergencyDisplay = emergency.name
+    ? `${emergency.name}${emergency.relationship ? ` (${emergency.relationship})` : ""}${emergency.phone ? ` — ${emergency.phone}` : ""}`
+    : "—";
+  const addressDisplay = [contact.address, contact.city, contact.zip].filter(Boolean).join(", ") || "—";
+  const providerDisplay = patient.staff ? `${patient.staff.firstname} ${patient.staff.lastname}` : "None";
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20 }}>
+      {/* Left — clinical summary */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <Card title="Clinical Summary">
+          <Row label="Primary Diagnosis" value={intake.diagnosis || "—"} />
+          <Row label="Gender" value={patient.gender || "—"} />
+          <Row label="Assigned Provider" value={providerDisplay} />
+        </Card>
+        <Card title="Contact Information">
+          <Row label="Phone" value={contact.phone || "—"} />
+          <Row label="Email" value={contact.email || "—"} />
+          <Row label="Address" value={addressDisplay} />
+          <Row label="Emergency Contact" value={emergencyDisplay} />
+        </Card>
+      </div>
+      {/* Right — Profile details */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <Card title="Enrolled Programs">
+          {(!patient.patientPrograms || patient.patientPrograms.length === 0) ? (
+            <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0 }}>
+              Not enrolled in any programs.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {patient.patientPrograms.map((pp: any) => (
+                <div
+                  key={pp.id}
+                  style={{
+                    background: "var(--color-surface-container-low)",
+                    border: "1px solid var(--color-outline-variant)",
+                    borderRadius: 10,
+                    padding: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div>
+                      <h4 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 2px", color: "var(--color-on-surface)" }}>
+                        {pp.program.name}
+                      </h4>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, color: "var(--color-on-surface-variant)" }}>{pp.program.type}</span>
+                        <span style={{ fontSize: 11, background: pp.status === "Active" ? "#e6f4ea" : "#fce8e8", color: pp.status === "Active" ? "#137333" : "#b3261e", padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>
+                          {pp.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--color-on-surface-variant)" }}>
+                    Enrolled: {new Date(pp.enrolledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)", borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--color-outline-variant)" }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>{title}</h3>
+      </div>
+      <div style={{ padding: 20 }}>{children}</div>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--color-outline-variant)" }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface-variant)" }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-on-surface)", textAlign: "right", maxWidth: "60%" }}>{value}</span>
+    </div>
+  );
+}
+
+function InfoChip({ icon, text }: { icon: string; text: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{icon}</span>{text}
+    </span>
   );
 }

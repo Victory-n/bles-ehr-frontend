@@ -961,7 +961,10 @@ function EnrolledPatientsTab({
                       <ActionBtn 
                         icon="visibility" 
                         title="View Patient" 
-                        onClick={() => router.push(`/patients/${patient.id}`)}
+                        onClick={() => {
+                          const folderId = patient.folders?.[0]?.folderId;
+                          router.push(`/clinic-notes/${folderId || patient.id}`);
+                        }}
                       />
                       <ActionBtn 
                         icon="person_remove" 

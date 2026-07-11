@@ -144,6 +144,15 @@ export default function PatientDetailPage() {
     fetchPatient();
   }, [fetchPatient]);
 
+  useEffect(() => {
+    if (patient) {
+      const parentFolder = patient.folders?.find((f) => f.type === "PARENT");
+      if (parentFolder) {
+        router.replace(`/clinic-notes/${parentFolder.folderId}`);
+      }
+    }
+  }, [patient, router]);
+
   /* ── Loading state ──────────────────────────────────────────────────── */
   if (loading) {
     return (

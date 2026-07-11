@@ -28,7 +28,14 @@ export async function GET(
         deletedAt: null
       },
       include: {
-        patient: true
+        patient: {
+          include: {
+            folders: {
+              where: { type: "PARENT" },
+              select: { folderId: true }
+            }
+          }
+        }
       },
       orderBy: {
         enrolledAt: "desc"
