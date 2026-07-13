@@ -105,7 +105,8 @@ export default function ClinicNotesDetailPage() {
 
       {/* --- Breadcrumb ------------------------------------------------ */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--color-on-surface-variant)", marginBottom: 8 }}>
-        <span style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => router.push("/clinic-notes")}>Folders</span>
+        {/* <span style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => router.push("/clinic-notes")}>Folders</span> */}
+        <span style={{ cursor: "pointer", fontWeight: 500 }} onClick={() => router.push("/patients")}>Patients</span>
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>chevron_right</span>
         <span style={{ fontWeight: 600, color: "var(--color-on-surface)" }}>
           {patient ? `${patient.lastname}, ${patient.firstname} (${notesId})` : notesId}
@@ -1212,7 +1213,7 @@ function ProfileView({ patient, loading }: { patient: any; loading: boolean }) {
   const contact = patient.contactInformation ?? {};
   const emergency = patient.emergencyContact ?? {};
   const intake = patient.intakeNotes ?? {};
-  
+
   const emergencyDisplay = emergency.name
     ? `${emergency.name}${emergency.relationship ? ` (${emergency.relationship})` : ""}${emergency.phone ? ` — ${emergency.phone}` : ""}`
     : "—";

@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: "grid_view" },
   { label: "Patients", href: "/patients", icon: "person" },
   { label: "Staff", href: "/staff", icon: "group" },
-  { label: "Folders", href: "/clinic-notes", icon: "folder_open" },
+  // { label: "Folders", href: "/clinic-notes", icon: "folder_open" },
   { label: "Programs", href: "/programs", icon: "layers" },
   { label: "Billing", href: "/billing", icon: "payments" },
   { label: "Compliance", href: "/compliance", icon: "verified_user" },
@@ -118,22 +118,22 @@ function SidebarInner({ pathname, isCollapsed }: { pathname: string, isCollapsed
         }}
       >
         <div style={{
-           width: 24,
-           height: 24,
-           borderRadius: 6,
-           background: "var(--color-primary)",
-           display: "flex",
-           alignItems: "center",
-           justifyContent: "center",
-           flexShrink: 0,
-           marginLeft: -4
+          width: 24,
+          height: 24,
+          borderRadius: 6,
+          background: "var(--color-primary)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          marginLeft: -4
         }}>
-           <span className="material-symbols-outlined" style={{ color: "#fff", fontSize: 16 }}>local_hospital</span>
+          <span className="material-symbols-outlined" style={{ color: "#fff", fontSize: 16 }}>local_hospital</span>
         </div>
         <div style={{
-           opacity: isCollapsed ? 0 : 1,
-           transition: "opacity 0.2s ease",
-           whiteSpace: "nowrap"
+          opacity: isCollapsed ? 0 : 1,
+          transition: "opacity 0.2s ease",
+          whiteSpace: "nowrap"
         }}>
           <h1
             style={{
