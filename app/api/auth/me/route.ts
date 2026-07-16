@@ -24,14 +24,10 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json();
-    const { firstname, lastname, email, sex, dateofbirth, phone, title, department, bio, twoFactorEnabled } = body;
+    const { firstname, lastname, email, sex, dateofbirth, phone, title, department, bio } = body;
 
     if (!firstname || !lastname || !email) {
       return NextResponse.json({ message: "First name, last name, and email are required" }, { status: 400 });
-    }
-
-    if (user.twoFactorEnabled && twoFactorEnabled === false) {
-      return NextResponse.json({ message: "Disabling 2FA is not allowed once enabled" }, { status: 400 });
     }
 
     // Merge existing extendedInfo metadata with new fields
@@ -53,12 +49,11 @@ export async function PUT(req: Request) {
         sex: sex ?? user.sex,
         dateofbirth: dateofbirth ? new Date(dateofbirth) : user.dateofbirth,
         extendedInfo: updatedMeta,
-        twoFactorEnabled: twoFactorEnabled ?? user.twoFactorEnabled,
       },
     });
 
-    const { password: _, pin: __, ...userWithoutPassword } = updatedUser;
-    return NextResponse.json({ user: { ...userWithoutPassword, hasPin: !!updatedUser.pin }, message: "Profile updated successfully" }, { status: 200 });
+    const { password: _, ...userWithoutPassword } = updatedUser;
+    return NextResponse.json({ user: userWithoutPassword, message: "Profile updated successfully" }, { status: 200 });
   } catch (error) {
     console.error("PUT /api/auth/me error:", error);
     return NextResponse.json({ message: "An internal server error occurred" }, { status: 500 });

@@ -40,6 +40,23 @@ export async function GET(
         },
         documents: {
           where: { deletedAt: null },
+          include: {
+            clinicNote: {
+              include: {
+                versions: {
+                  include: {
+                    editedBy: {
+                      select: {
+                        firstname: true,
+                        lastname: true
+                      }
+                    }
+                  },
+                  orderBy: { version: 'desc' }
+                }
+              }
+            }
+          },
           orderBy: { createdAt: 'desc' }
         }
       }
@@ -75,6 +92,23 @@ export async function GET(
             },
             documents: {
               where: { deletedAt: null },
+              include: {
+                clinicNote: {
+                  include: {
+                    versions: {
+                      include: {
+                        editedBy: {
+                          select: {
+                            firstname: true,
+                            lastname: true
+                          }
+                        }
+                      },
+                      orderBy: { version: 'desc' }
+                    }
+                  }
+                }
+              },
               orderBy: { createdAt: 'desc' }
             }
           }
@@ -104,6 +138,23 @@ export async function GET(
               },
               documents: {
                 where: { deletedAt: null },
+                include: {
+                  clinicNote: {
+                    include: {
+                      versions: {
+                        include: {
+                          editedBy: {
+                            select: {
+                              firstname: true,
+                              lastname: true
+                            }
+                          }
+                        },
+                        orderBy: { version: 'desc' }
+                      }
+                    }
+                  }
+                },
                 orderBy: { createdAt: 'desc' }
               }
             }

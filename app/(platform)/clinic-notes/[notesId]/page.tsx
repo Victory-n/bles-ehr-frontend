@@ -4,6 +4,8 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { DocumentType } from "@prisma/client";
 import PatientFormModal from "@/components/patients/PatientFormModal";
+import ClinicNoteDetailModal from "@/components/clinic-notes/ClinicNoteDetailModal";
+import { cleanMarkdownToPlainText } from "@/utils/formatters";
 
 const TABS = ["Overview", "Profile", "Session", "Treatment Plan", "Diagnosis", "Appointments", "Medications & Allergies", "Compliance", "Clinic Notes", "General Documents", "Billing Records"] as const;
 type Tab = (typeof TABS)[number];
@@ -18,8 +20,12 @@ export default function ClinicNotesDetailPage() {
   const [isTreatmentPlanModalOpen, setIsTreatmentPlanModalOpen] = useState(false);
   const [isMedicationModalOpen, setIsMedicationModalOpen] = useState(false);
   const [patient, setPatient] = useState<any>(null);
+  const [folder, setFolder] = useState<any>(null);
+  const [documents, setDocuments] = useState<any[]>([]);
   const [loadingPatient, setLoadingPatient] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const fetchFolder = useCallback(async () => {
     try {
@@ -28,6 +34,8 @@ export default function ClinicNotesDetailPage() {
       if (res.ok) {
         const data = await res.json();
         setPatient(data.patient);
+        setFolder(data.folder);
+        setDocuments(data.documents || []);
       }
     } catch (err) {
       console.error("Error loading folder details:", err);
@@ -253,6 +261,17 @@ export default function ClinicNotesDetailPage() {
           {activeTab === "Medications & Allergies" && <MedicationsAndAllergiesView onAddMedication={() => setIsMedicationModalOpen(true)} />}
           {activeTab === "Compliance" && <TierUpgradeCard featureName="Compliance" tier={3} />}
           {activeTab === "Billing Records" && <TierUpgradeCard featureName="Billing Records" tier={2} />}
+          {activeTab === "Clinic Notes" && (
+            <ClinicNotesView
+              documents={documents}
+              patient={patient}
+              onOpenNote={(docId) => {
+                setSelectedDocId(docId);
+                setIsDetailModalOpen(true);
+              }}
+            />
+          )}
+          {activeTab === "General Documents" && <TierUpgradeCard featureName="General Documents" tier={1} />}
 
         </div> {/* End of Right Main Content Area */}
       </div> {/* End of Grid Wrapper */}
@@ -660,6 +679,249 @@ export default function ClinicNotesDetailPage() {
           onClose={() => setShowEditModal(false)}
           onSave={() => fetchFolder()}
         />
+      )}
+
+      {/* --- Clinic Note Detail Modal ------------------------------------- */}
+      {isDetailModalOpen && selectedDocId && patient && (
+        <ClinicNoteDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={() => setIsDetailModalOpen(false)}
+          documentId={selectedDocId}
+          patient={patient}
+          onUpdate={() => {
+            fetchFolder();
+            setIsDetailModalOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ClinicNotesView({
+  documents,
+  patient,
+  onOpenNote,
+}: {
+  documents: any[];
+  patient: any;
+  onOpenNote: (docId: string) => void;
+}) {
+  const notes = documents.filter(
+    (doc) => doc.documentType === DocumentType.CLINIC_NOTES && doc.clinicNote
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Header */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        background: "var(--color-surface-container-lowest)",
+        padding: "16px 20px",
+        border: "1px solid var(--color-outline-variant)",
+        borderRadius: 12
+      }}>
+        <div>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--color-on-surface)" }}>Clinical Notes</h3>
+          <p style={{ margin: "2px 0 0 0", fontSize: 12, color: "var(--color-on-surface-variant)" }}>
+            List of all clinical documents and evaluations for this patient.
+          </p>
+        </div>
+      </div>
+
+      {notes.length === 0 ? (
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          padding: "60px 24px",
+          background: "var(--color-surface-container-lowest)",
+          border: "1px dashed var(--color-outline)",
+          borderRadius: 12,
+          textAlign: "center"
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 48, color: "var(--color-outline)" }}>edit_note</span>
+          <div>
+            <h4 style={{ margin: "0 0 4px 0", fontSize: 16, fontWeight: 600, color: "var(--color-on-surface)" }}>No Clinical Notes</h4>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--color-on-surface-variant)", maxWidth: 320 }}>
+              There are no clinical notes documented for this patient.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+          gap: 20
+        }}>
+          {notes.map((doc) => {
+            const clinicNote = doc.clinicNote;
+            const versions = clinicNote?.versions || [];
+            const latestVersion = versions[0];
+            
+            if (!latestVersion) return null;
+
+            const versionNum = latestVersion.version;
+            const title = latestVersion.title || doc.name || "Untitled Note";
+            const noteType = latestVersion.noteType || "Session Note";
+            const program = latestVersion.program && latestVersion.program !== "None" ? latestVersion.program : "";
+            const status = (latestVersion.status || "DRAFT").toUpperCase();
+            
+            // Format content plain text snippet
+            const plainText = cleanMarkdownToPlainText(latestVersion.content || "");
+            const snippet = plainText.slice(0, 140) + (plainText.length > 140 ? "..." : "");
+
+            // Edited by info
+            const editorName = latestVersion.editedBy 
+              ? `${latestVersion.editedBy.firstname} ${latestVersion.editedBy.lastname}`
+              : "System";
+              
+            // Date formatting
+            const dateStr = new Date(latestVersion.createdAt || doc.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit"
+            });
+
+            // Badge styling
+            let statusBg = "#fff8e1";
+            let statusColor = "#f57c00";
+            let statusBorder = "1px solid #ffe082";
+            let statusIcon = "edit_document";
+
+            if (status === "SIGNED") {
+              statusBg = "#e6f4ea";
+              statusColor = "#137333";
+              statusBorder = "1px solid #c2e7c9";
+              statusIcon = "check_circle";
+            } else if (status === "LOCKED") {
+              statusBg = "#f3e5f5";
+              statusColor = "#7b1fa2";
+              statusBorder = "1px solid #e1bee7";
+              statusIcon = "lock";
+            }
+
+            return (
+              <div
+                key={doc.id}
+                onClick={() => onOpenNote(doc.id)}
+                style={{
+                  background: "var(--color-surface-container-lowest)",
+                  border: "1px solid var(--color-outline-variant)",
+                  borderRadius: 12,
+                  padding: 20,
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: 16,
+                  transition: "all 0.2s ease-in-out",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)"
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
+                  e.currentTarget.style.borderColor = "var(--color-primary)";
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)";
+                  e.currentTarget.style.borderColor = "var(--color-outline-variant)";
+                }}
+              >
+                <div>
+                  {/* Top Badge Row */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    {/* Status Badge */}
+                    <span style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "3px 8px",
+                      borderRadius: 12,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      background: statusBg,
+                      color: statusColor,
+                      border: statusBorder
+                    }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{statusIcon}</span>
+                      {status}
+                    </span>
+
+                    {/* Version Badge */}
+                    <span style={{
+                      padding: "2px 6px",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: "var(--color-surface-container-low)",
+                      border: "1px solid var(--color-outline-variant)",
+                      color: "var(--color-on-surface-variant)"
+                    }}>
+                      v{versionNum}
+                    </span>
+                  </div>
+
+                  {/* Note Title */}
+                  <h4 style={{ margin: "0 0 4px 0", fontSize: 16, fontWeight: 700, color: "var(--color-on-surface)", lineHeight: 1.3 }}>
+                    {title}
+                  </h4>
+
+                  {/* Subtitle / Program / Note Type */}
+                  <div style={{ fontSize: 12, color: "var(--color-on-surface-variant)", display: "flex", alignItems: "center", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                    <span>{noteType}</span>
+                    {program && (
+                      <>
+                        <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--color-outline)" }} />
+                        <span>{program}</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Snippet */}
+                  <p style={{
+                    margin: 0,
+                    fontSize: 13,
+                    color: "var(--color-on-surface-variant)",
+                    lineHeight: 1.5,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    minHeight: 58
+                  }}>
+                    {snippet || <span style={{ fontStyle: "italic", color: "#86868b" }}>No content in note.</span>}
+                  </p>
+                </div>
+
+                {/* Footer / Editor & Timestamp */}
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingTop: 12,
+                  borderTop: "1px solid var(--color-outline-variant)",
+                  fontSize: 11,
+                  color: "var(--color-on-surface-variant)"
+                }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>person</span>
+                    By {editorName}
+                  </span>
+                  <span>{dateStr}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

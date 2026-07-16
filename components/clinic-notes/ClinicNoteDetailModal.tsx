@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { computeDiff, DiffChunk } from "@/lib/utils/diff";
-import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 import { cleanMarkdownToPlainText } from "@/utils/formatters";
 
 interface UserInfo {
@@ -98,10 +97,7 @@ export default function ClinicNoteDetailModal({
   // Lists
   const [programsList, setProgramsList] = useState<any[]>([]);
 
-  // PIN Modals State
-  const [showSetPinModal, setShowSetPinModal] = useState(false);
-  const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
-  const [pinActionType, setPinActionType] = useState<"sign" | "cosign" | null>(null);
+
 
   // Speech Recognition State
   const [isListening, setIsListening] = useState(false);
@@ -498,21 +494,11 @@ export default function ClinicNoteDetailModal({
   };
 
   const handleSignClick = () => {
-    setPinActionType("sign");
-    if (!user?.hasPin) {
-      setShowSetPinModal(true);
-    } else {
-      setShowVerifyPinModal(true);
-    }
+    completeSign();
   };
 
   const handleCosignClick = () => {
-    setPinActionType("cosign");
-    if (!user?.hasPin) {
-      setShowSetPinModal(true);
-    } else {
-      setShowVerifyPinModal(true);
-    }
+    completeCosign();
   };
 
   const completeSign = async () => {
@@ -1615,28 +1601,6 @@ export default function ClinicNoteDetailModal({
 
       </div>
 
-      {/* PIN Modals */}
-      {showSetPinModal && (
-        <SetPinModal
-          onClose={() => setShowSetPinModal(false)}
-          onSuccess={() => {
-            setShowSetPinModal(false);
-            if (user) user.hasPin = true;
-            if (pinActionType === "sign") completeSign();
-            if (pinActionType === "cosign") completeCosign();
-          }}
-        />
-      )}
-      {showVerifyPinModal && (
-        <VerifyPinModal
-          onClose={() => setShowVerifyPinModal(false)}
-          onSuccess={() => {
-            setShowVerifyPinModal(false);
-            if (pinActionType === "sign") completeSign();
-            if (pinActionType === "cosign") completeCosign();
-          }}
-        />
-      )}
     </>
   );
 }

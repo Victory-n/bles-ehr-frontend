@@ -6,7 +6,6 @@ import ProgramFormModal from "@/components/programs/ProgramFormModal";
 import EnrollPatientModal from "@/components/programs/EnrollPatientModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { hasPermission, PERMISSION_LEVELS } from "@/lib/auth/permissions";
-import { VerifyPinModal } from "@/components/PinModal";
 import SessionNoteModal from "@/components/programs/SessionNoteModal";
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -85,8 +84,6 @@ export default function ProgramDetailPage() {
   const programId = params.programId as string;
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [program, setProgram] = useState<Program | null>(null);
-  const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
-  const [pinAction, setPinAction] = useState<"end" | "resume" | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -285,7 +282,7 @@ export default function ProgramDetailPage() {
     }
   };
 
-  const handleResumeClosedClick = () => {
+  const handleResumeClosedClick = async () => {
     if (user?.role !== 1) {
       alert("Only an administrator can resume an ended program.");
       return;
@@ -295,56 +292,45 @@ export default function ProgramDetailPage() {
       alert("Only the administrator who ended this program can resume it.");
       return;
     }
-    setPinAction("resume");
-    setShowVerifyPinModal(true);
+    try {
+      const res = await fetch(`/api/programs/${programId}/resume`, {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        await fetchProgram();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.message || "Failed to resume program.");
+      }
+    } catch (error) {
+      console.error("Failed to resume program:", error);
+      alert("An error occurred while resuming the program.");
+    }
   };
 
-  const handleEndProgramClick = () => {
+  const handleEndProgramClick = async () => {
     if (user?.role !== 1) {
       alert("Only administrators can end a program.");
       return;
     }
-    setPinAction("end");
-    setShowVerifyPinModal(true);
-  };
+    const confirmed = window.confirm("Are you sure you want to end this program?");
+    if (!confirmed) return;
 
-  const handlePinSuccess = async () => {
-    setShowVerifyPinModal(false);
-    const currentAction = pinAction;
-    setPinAction(null);
+    try {
+      const res = await fetch(`/api/programs/${programId}/end`, {
+        method: "POST",
+      });
 
-    if (currentAction === "end") {
-      try {
-        const res = await fetch(`/api/programs/${programId}/end`, {
-          method: "POST",
-        });
-
-        if (res.ok) {
-          await fetchProgram();
-        } else {
-          const errorData = await res.json();
-          alert(errorData.message || "Failed to end program.");
-        }
-      } catch (error) {
-        console.error("Failed to end program:", error);
-        alert("An error occurred while ending the program.");
+      if (res.ok) {
+        await fetchProgram();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.message || "Failed to end program.");
       }
-    } else if (currentAction === "resume") {
-      try {
-        const res = await fetch(`/api/programs/${programId}/resume`, {
-          method: "POST",
-        });
-
-        if (res.ok) {
-          await fetchProgram();
-        } else {
-          const errorData = await res.json();
-          alert(errorData.message || "Failed to resume program.");
-        }
-      } catch (error) {
-        console.error("Failed to resume program:", error);
-        alert("An error occurred while resuming the program.");
-      }
+    } catch (error) {
+      console.error("Failed to end program:", error);
+      alert("An error occurred while ending the program.");
     }
   };
 
@@ -719,15 +705,7 @@ export default function ProgramDetailPage() {
         </div>
       )}
 
-      {showVerifyPinModal && (
-        <VerifyPinModal
-          onClose={() => {
-            setShowVerifyPinModal(false);
-            setPinAction(null);
-          }}
-          onSuccess={handlePinSuccess}
-        />
-      )}
+
 
       {activeNoteSession && (
         <SessionNoteModal

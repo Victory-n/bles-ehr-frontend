@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 import StaffCreatedModal from "./StaffCreatedModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 
@@ -34,9 +33,7 @@ interface Props {
 }
 
 export default function StaffFormModal({ onClose }: Props) {
-    const { user: currentUser, refreshUser } = useAuth();
-    const [showSetPinModal, setShowSetPinModal] = useState(false);
-    const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
+    const { user: currentUser } = useAuth();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [formVisible, setFormVisible] = useState(true);
     const [activeTab, setActiveTab] = useState<"profile" | "permissions">("profile");
@@ -56,18 +53,7 @@ export default function StaffFormModal({ onClose }: Props) {
             setActiveTab('permissions');
         } else {
             if (!currentUser) return;
-            // Check 2FA conditions
-            if (currentUser.hasPin && currentUser.twoFactorEnabled) {
-                // Pin filled and 2FA enabled - show verify modal
-                setShowVerifyPinModal(true);
-            } else if (!currentUser.hasPin && !currentUser.twoFactorEnabled) {
-                // Pin not set and 2FA disabled - show set pin modal
-                setShowSetPinModal(true);
-            } else {
-                // If neither condition matches, maybe just proceed? Or handle error?
-                // Let's proceed to create staff if in between state
-                await createStaffMember();
-            }
+            await createStaffMember();
         }
     };
 
@@ -108,10 +94,7 @@ export default function StaffFormModal({ onClose }: Props) {
         }
     };
 
-    const handlePinSetSuccess = async () => {
-        await refreshUser(); // Refresh user to get updated hasPin value
-        await createStaffMember();
-    };
+
 
     const handleDone = () => {
         onClose();
@@ -563,19 +546,7 @@ export default function StaffFormModal({ onClose }: Props) {
                 </div>
             )}
 
-            {/* PIN Modals */}
-            {showSetPinModal && (
-                <SetPinModal
-                    onClose={() => setShowSetPinModal(false)}
-                    onSuccess={handlePinSetSuccess}
-                />
-            )}
-            {showVerifyPinModal && (
-                <VerifyPinModal
-                    onClose={() => setShowVerifyPinModal(false)}
-                    onSuccess={createStaffMember}
-                />
-            )}
+
 
             {/* Success Modal */}
             {showSuccessModal && createdStaff && (

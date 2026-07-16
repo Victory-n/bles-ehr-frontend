@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import PatientFormModal from "@/components/patients/PatientFormModal";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 import ImportModal from "@/components/ImportModal";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -49,10 +48,7 @@ export default function PatientsPage() {
     const [staffFilter, setStaffFilter] = useState("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [showAddModal, setShowAddModal] = useState(false);
-    const [showSetPinModal, setShowSetPinModal] = useState(false);
-    const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
-    const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
     const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
 
     const fetchPatients = useCallback(async () => {
@@ -87,21 +83,7 @@ export default function PatientsPage() {
     const totalActive = patients.filter((p) => p.status === "Active").length;
     const totalInactive = patients.filter((p) => p.status === "Inactive").length;
 
-    const requirePinForAction = (action: () => void) => {
-        setPendingAction(() => action);
-        if (!user?.hasPin) {
-            setShowSetPinModal(true);
-        } else {
-            setShowVerifyPinModal(true);
-        }
-    };
 
-    const completePendingAction = () => {
-        if (pendingAction) {
-            pendingAction();
-            setPendingAction(null);
-        }
-    };
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -201,7 +183,7 @@ export default function PatientsPage() {
                 {/* Import & Export — pushed right */}
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
                 <button
-                    onClick={() => requirePinForAction(() => setShowImportModal(true))}
+                    onClick={() => setShowImportModal(true)}
                     style={{
                         display: "flex",
                         alignItems: "center",
@@ -418,25 +400,7 @@ export default function PatientsPage() {
             {/* ── Add Patient Modal ──────────────────────────────────────────── */}
             {showAddModal && <PatientFormModal mode="add" onClose={() => setShowAddModal(false)} onSave={() => fetchPatients()} />}
 
-            {/* PIN Modals */}
-            {showSetPinModal && (
-                <SetPinModal 
-                    onClose={() => setShowSetPinModal(false)}
-                    onSuccess={() => {
-                        setShowSetPinModal(false);
-                        completePendingAction();
-                    }} 
-                />
-            )}
-            {showVerifyPinModal && (
-                <VerifyPinModal 
-                    onClose={() => setShowVerifyPinModal(false)}
-                    onSuccess={() => {
-                        setShowVerifyPinModal(false);
-                        completePendingAction();
-                    }} 
-                />
-            )}
+
             {showImportModal && <ImportModal onClose={() => setShowImportModal(false)} onImportSuccess={fetchPatients} />}
         </div>
     );

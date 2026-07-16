@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { cleanMarkdownToPlainText } from "@/utils/formatters";
 
@@ -37,9 +36,7 @@ export default function NewClinicNotePage() {
   const [programsList, setProgramsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // PIN Modals State
-  const [showSetPinModal, setShowSetPinModal] = useState(false);
-  const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
+
 
   // Form states
   const [title, setTitle] = useState("Click to add title");
@@ -570,15 +567,7 @@ export default function NewClinicNotePage() {
       return;
     }
 
-    if (isLocked) {
-      if (!user?.hasPin) {
-        setShowSetPinModal(true);
-      } else {
-        setShowVerifyPinModal(true);
-      }
-    } else {
-      completeSaveNote(false);
-    }
+    completeSaveNote(isLocked);
   };
 
   const completeSaveNote = async (isLocked: boolean) => {
@@ -1580,27 +1569,7 @@ export default function NewClinicNotePage() {
         </div>
       </div>
 
-      {/* PIN Modals */}
-      {showSetPinModal && (
-        <SetPinModal
-          onClose={() => setShowSetPinModal(false)}
-          onSuccess={() => {
-            setShowSetPinModal(false);
-            // Refresh user session state so hasPin changes to true
-            if (user) user.hasPin = true;
-            completeSaveNote(true);
-          }}
-        />
-      )}
-      {showVerifyPinModal && (
-        <VerifyPinModal
-          onClose={() => setShowVerifyPinModal(false)}
-          onSuccess={() => {
-            setShowVerifyPinModal(false);
-            completeSaveNote(true);
-          }}
-        />
-      )}
+
 
     </div>
   );

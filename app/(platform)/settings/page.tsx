@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { SetPinModal } from "@/components/PinModal";
 
 /* ══════════════════════════════════════════════════════════════════════════
    Mock Settings Data
@@ -489,20 +488,10 @@ function MyProfileTab({ onSave }: { onSave: (msg: string) => void }) {
    ══════════════════════════════════════════════════════════════════════════ */
 
 function SecurityTab({ onSave }: { onSave: (msg: string) => void }) {
-    const { user, refreshUser } = useAuth();
+    const { user } = useAuth();
     const [currentPass, setCurrentPass] = useState("");
     const [newPass, setNewPass] = useState("");
     const [confirmPass, setConfirmPass] = useState("");
-    const [twoFactor, setTwoFactor] = useState(false);
-    const [pinSet, setPinSet] = useState(false);
-    const [showSetPinModal, setShowSetPinModal] = useState(false);
-
-    useEffect(() => {
-        if (user) {
-            setTwoFactor(user.twoFactorEnabled || false);
-            setPinSet(user.hasPin || false);
-        }
-    }, [user]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -516,203 +505,86 @@ function SecurityTab({ onSave }: { onSave: (msg: string) => void }) {
         onSave("Security settings and credentials updated successfully.");
     };
 
-    const handleTwoFactorChange = async (checked: boolean) => {
-        if (user?.twoFactorEnabled && !checked) {
-            alert("Disabling 2FA is not allowed once enabled.");
-            return;
-        }
-
-        if (checked && !pinSet) {
-            setShowSetPinModal(true);
-            return;
-        }
-
-        try {
-            const res = await fetch("/api/auth/me", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ twoFactorEnabled: checked })
-            });
-
-            if (res.ok) {
-                setTwoFactor(checked);
-                await refreshUser();
-                onSave("Two-factor authentication enabled successfully.");
-            } else {
-                const data = await res.json().catch(() => ({}));
-                alert(data.message || "Failed to update 2FA status.");
-            }
-        } catch (error) {
-            console.error("Error updating 2FA:", error);
-            alert("A network error occurred.");
-        }
-    };
-
     return (
-        <>
-            <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                    <Card title="Change Password">
-                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                            <FormGroup label="Current Password" id="currentPass">
-                                <input
-                                    type="password"
-                                    id="currentPass"
-                                    value={currentPass}
-                                    onChange={e => setCurrentPass(e.target.value)}
-                                    style={inputStyle}
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </FormGroup>
+        <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <Card title="Change Password">
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <FormGroup label="Current Password" id="currentPass">
+                            <input
+                                type="password"
+                                id="currentPass"
+                                value={currentPass}
+                                onChange={e => setCurrentPass(e.target.value)}
+                                style={inputStyle}
+                                placeholder="••••••••"
+                                required
+                            />
+                        </FormGroup>
 
-                            <FormGroup label="New Password" id="newPass">
-                                <input
-                                    type="password"
-                                    id="newPass"
-                                    value={newPass}
-                                    onChange={e => setNewPass(e.target.value)}
-                                    style={inputStyle}
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </FormGroup>
+                        <FormGroup label="New Password" id="newPass">
+                            <input
+                                type="password"
+                                id="newPass"
+                                value={newPass}
+                                onChange={e => setNewPass(e.target.value)}
+                                style={inputStyle}
+                                placeholder="••••••••"
+                                required
+                            />
+                        </FormGroup>
 
-                            <FormGroup label="Confirm New Password" id="confirmPass">
-                                <input
-                                    type="password"
-                                    id="confirmPass"
-                                    value={confirmPass}
-                                    onChange={e => setConfirmPass(e.target.value)}
-                                    style={inputStyle}
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </FormGroup>
-                        </div>
-                    </Card>
-
-                    <div>
-                        <button type="submit" style={saveBtnStyle}>Update Password</button>
+                        <FormGroup label="Confirm New Password" id="confirmPass">
+                            <input
+                                type="password"
+                                id="confirmPass"
+                                value={confirmPass}
+                                onChange={e => setConfirmPass(e.target.value)}
+                                style={inputStyle}
+                                placeholder="••••••••"
+                                required
+                            />
+                        </FormGroup>
                     </div>
+                </Card>
+
+                <div>
+                    <button type="submit" style={saveBtnStyle}>Update Password</button>
                 </div>
+            </div>
 
-                {/* Right side widgets */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                    <Card title="Two-Factor Authentication">
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                            <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0, lineHeight: 1.5 }}>
-                                Add an extra layer of security to your clinical portal account to protect Patient Health Information (PHI).
-                            </p>
-                            <div style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "12px 16px",
-                                background: "var(--color-surface-container-low)",
-                                border: "1px solid var(--color-outline-variant)",
-                                borderRadius: 8,
-                                marginTop: 4
-                            }}>
-                                <div>
-                                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
-                                        2FA Verification
-                                    </span>
-                                    <span style={{ fontSize: 11, color: "var(--color-outline)", display: "block", marginTop: 2 }}>
-                                        Required at login
-                                    </span>
-                                </div>
-                                <Switch checked={twoFactor} onChange={handleTwoFactorChange} disabled={user?.twoFactorEnabled} />
+            {/* Right side widgets */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <Card title="Active Sessions">
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div style={{ display: "flex", gap: 10 }}>
+                            <span className="material-symbols-outlined" style={{ color: "var(--color-primary-container)" }}>desktop_windows</span>
+                            <div>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
+                                    Chrome on Windows
+                                </span>
+                                <span style={{ fontSize: 11, color: "#137333", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, marginTop: 2 }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#137333" }} />
+                                    Active Now
+                                </span>
                             </div>
                         </div>
-                    </Card>
-
-                    <Card title="PIN for Sensitive Actions">
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                            <p style={{ fontSize: 13, color: "var(--color-on-surface-variant)", margin: 0, lineHeight: 1.5 }}>
-                                Your 6-digit PIN is required for sensitive actions like updating patient information, discharging patients, and signing notes.
-                            </p>
-                            <div style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "12px 16px",
-                                background: "var(--color-surface-container-low)",
-                                border: "1px solid var(--color-outline-variant)",
-                                borderRadius: 8,
-                                marginTop: 4
-                            }}>
-                                <div>
-                                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
-                                        PIN Status
-                                    </span>
-                                    <span style={{ fontSize: 11, color: pinSet ? "#137333" : "var(--color-outline)", display: "block", marginTop: 2 }}>
-                                        {pinSet ? "PIN set" : "Not set"}
-                                    </span>
-                                </div>
-                                {twoFactor && (
-                                    <button
-                                        onClick={() => setShowSetPinModal(true)}
-                                        style={{
-                                            padding: "8px 16px",
-                                            borderRadius: 6,
-                                            border: "1px solid var(--color-primary-container)",
-                                            background: "transparent",
-                                            fontSize: 13,
-                                            fontWeight: 600,
-                                            color: "var(--color-primary-container)",
-                                            cursor: "pointer"
-                                        }}
-                                    >
-                                        {pinSet ? "Change PIN" : "Set PIN"}
-                                    </button>
-                                )}
+                        <hr style={{ border: "none", borderBottom: "1px solid var(--color-outline-variant)", margin: 0 }} />
+                        <div style={{ display: "flex", gap: 10 }}>
+                            <span className="material-symbols-outlined" style={{ color: "var(--color-outline)" }}>phone_iphone</span>
+                            <div>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
+                                    Safari on iPhone 15
+                                </span>
+                                <span style={{ fontSize: 11, color: "var(--color-on-surface-variant)", display: "block", marginTop: 2 }}>
+                                    Lagos, Nigeria • 2 days ago
+                                </span>
                             </div>
                         </div>
-                    </Card>
-
-                    <Card title="Active Sessions">
-                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                            <div style={{ display: "flex", gap: 10 }}>
-                                <span className="material-symbols-outlined" style={{ color: "var(--color-primary-container)" }}>desktop_windows</span>
-                                <div>
-                                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
-                                        Chrome on Windows
-                                    </span>
-                                    <span style={{ fontSize: 11, color: "#137333", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, marginTop: 2 }}>
-                                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#137333" }} />
-                                        Active Now
-                                    </span>
-                                </div>
-                            </div>
-                            <hr style={{ border: "none", borderBottom: "1px solid var(--color-outline-variant)", margin: 0 }} />
-                            <div style={{ display: "flex", gap: 10 }}>
-                                <span className="material-symbols-outlined" style={{ color: "var(--color-outline)" }}>phone_iphone</span>
-                                <div>
-                                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-on-surface)", display: "block" }}>
-                                        Safari on iPhone 15
-                                    </span>
-                                    <span style={{ fontSize: 11, color: "var(--color-on-surface-variant)", display: "block", marginTop: 2 }}>
-                                        Lagos, Nigeria • 2 days ago
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-            </form>
-
-            {showSetPinModal && (
-                <SetPinModal 
-                    onClose={() => {
-                        setShowSetPinModal(false);
-                        setPinSet(true);
-                        refreshUser();
-                        onSave("PIN set successfully.");
-                    }} 
-                />
-            )}
-        </>
+                    </div>
+                </Card>
+            </div>
+        </form>
     );
 }
 

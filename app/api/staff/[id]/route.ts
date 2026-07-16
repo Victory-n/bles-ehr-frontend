@@ -23,7 +23,7 @@ export async function GET(
     }
 
     // Exclude sensitive fields
-    const { password, pin, ...staffWithoutSensitive } = staff;
+    const { password, ...staffWithoutSensitive } = staff;
 
     return NextResponse.json({ staff: staffWithoutSensitive }, { status: 200 });
   } catch (error) {
@@ -92,7 +92,7 @@ export async function PUT(
       return updated;
     });
 
-    const { password, pin, ...staffWithoutSensitive } = result;
+    const { password, ...staffWithoutSensitive } = result;
 
     return NextResponse.json({ staff: staffWithoutSensitive, message: "Staff updated successfully" }, { status: 200 });
   } catch (error) {

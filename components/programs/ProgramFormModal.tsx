@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
-import { useAuth } from "@/lib/auth/AuthContext";
+
 
 interface Program {
   id: string;
@@ -28,34 +27,19 @@ interface Props {
 }
 
 export default function ProgramFormModal({ onClose, onSave, program }: Props) {
-  const { user } = useAuth();
-  const [showSetPinModal, setShowSetPinModal] = useState(false);
-  const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const isEditMode = !!program;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    setPendingFormData(fd);
-
-    if (!user?.hasPin) {
-      setShowSetPinModal(true);
-    } else {
-      setShowVerifyPinModal(true);
-    }
-  };
-
-  const submitProgramData = async () => {
-    if (!pendingFormData) return;
     setLoading(true);
     setError("");
 
     try {
-      const payload = Object.fromEntries(pendingFormData.entries());
+      const payload = Object.fromEntries(fd.entries());
       const res = await fetch(isEditMode ? `/api/programs/${program.programId}` : "/api/programs", {
         method: isEditMode ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -316,26 +300,6 @@ export default function ProgramFormModal({ onClose, onSave, program }: Props) {
           </div>
         </form>
       </div>
-
-      {/* PIN Modals */}
-      {showSetPinModal && (
-        <SetPinModal 
-          onClose={() => setShowSetPinModal(false)}
-          onSuccess={() => {
-            setShowSetPinModal(false);
-            submitProgramData();
-          }} 
-        />
-      )}
-      {showVerifyPinModal && (
-        <VerifyPinModal 
-          onClose={() => setShowVerifyPinModal(false)}
-          onSuccess={() => {
-            setShowVerifyPinModal(false);
-            submitProgramData();
-          }} 
-        />
-      )}
     </div>
   );
 }

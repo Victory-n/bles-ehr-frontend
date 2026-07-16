@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { SetPinModal, VerifyPinModal } from "@/components/PinModal";
-import { useAuth } from "@/lib/auth/AuthContext";
+
 
 /* ══════════════════════════════════════════════════════════════════════════
    Patient Form Modal — shared between Add & Edit flows
@@ -39,10 +38,6 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
   const title = isEdit ? "Edit Patient" : "Add New Patient";
   const icon = isEdit ? "edit" : "person_add";
   const saveLabel = isEdit ? "Update Patient" : "Save Patient";
-  const { user } = useAuth();
-  const [showSetPinModal, setShowSetPinModal] = useState(false);
-  const [showVerifyPinModal, setShowVerifyPinModal] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [staffList, setStaffList] = useState<{ id: string; firstname: string; lastname: string }[]>([]);
@@ -77,25 +72,14 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
     }))
   ];
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    setPendingFormData(fd);
-
-    if (!user?.hasPin) {
-      setShowSetPinModal(true);
-    } else {
-      setShowVerifyPinModal(true);
-    }
-  };
-
-  const submitPatientData = async () => {
-    if (!pendingFormData) return;
     setLoading(true);
     setError("");
 
     try {
-      const payload = Object.fromEntries(pendingFormData.entries());
+      const payload = Object.fromEntries(fd.entries());
       const url = isEdit && editPatientId ? `/api/patients/${editPatientId}` : "/api/patients";
       const method = isEdit ? "PUT" : "POST";
       const res = await fetch(url, {
@@ -282,26 +266,6 @@ export default function PatientFormModal({ mode, initialData, editPatientId, onC
           </div>
         </form>
       </div>
-
-      {/* PIN Modals */}
-      {showSetPinModal && (
-        <SetPinModal 
-          onClose={() => setShowSetPinModal(false)}
-          onSuccess={() => {
-            setShowSetPinModal(false);
-            submitPatientData();
-          }} 
-        />
-      )}
-      {showVerifyPinModal && (
-        <VerifyPinModal 
-          onClose={() => setShowVerifyPinModal(false)}
-          onSuccess={() => {
-            setShowVerifyPinModal(false);
-            submitPatientData();
-          }} 
-        />
-      )}
     </div>
   );
 }
