@@ -53,6 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Failed to fetch session user:", error);
       setUser(null);
+      if (pathname !== "/login" && pathname !== "/forgot-password") {
+        router.push("/login");
+      }
     } finally {
       setLoading(false);
     }

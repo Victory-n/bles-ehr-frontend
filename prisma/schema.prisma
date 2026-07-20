@@ -77,6 +77,7 @@ model User {
   signedClinicNotes      ClinicNoteVersion[] @relation("ClinicNoteVersionSigner")
   cosignedClinicNotes    ClinicNoteVersion[] @relation("ClinicNoteVersionCosigner")
   editedClinicNoteVersions ClinicNoteVersion[]
+  treatmentPlans           TreatmentPlan[]
 }
 
 model Patient {
@@ -99,6 +100,7 @@ model Patient {
   patientPrograms    PatientProgram[]
   documents          Document[]
   folders            Folder[]
+  treatmentPlans     TreatmentPlan[]
 }
 
 model Program {
@@ -163,6 +165,8 @@ model Session {
   updatedAt        DateTime @updatedAt
   note             SessionNote?
   recordings       Document[]
+  treatmentPlanId  String?
+  treatmentPlan    TreatmentPlan? @relation(fields: [treatmentPlanId], references: [id], onDelete: SetNull)
 
   @@index([programId])
   @@index([patientProgramId])
@@ -333,3 +337,27 @@ model ClinicalTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model TreatmentPlan {
+  id            String        @id @default(uuid())
+  patientId     String
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  title         String        // e.g. "Cognitive Behavioral Therapy for Anxiety"
+  diagnosis     String?       // Clinical Impression / Targeted Diagnosis
+  goals         String        @db.Text // Measurable goals and objectives
+  interventions String?       @db.Text // Therapeutic interventions
+  frequency     String?       // Session frequency, e.g. "Once a week"
+  duration      String?       // Plan duration, e.g. "12 weeks"
+  status        String        @default("DRAFT") // DRAFT, ACTIVE, COMPLETED, INACTIVE
+  createdById   String
+  createdBy     User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  deletedAt     DateTime?
+  deletedBy     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  sessions      Session[]
+
+  @@index([patientId])
+  @@index([status])
+}
+

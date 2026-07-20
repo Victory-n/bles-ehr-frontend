@@ -11,8 +11,11 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api/auth/") ||
     pathname === "/forgot-password";
 
-  // If the user has no token and is trying to access a protected path, redirect to /login
+  // If the user has no token and is trying to access a protected path
   if (!token && !isPublicPath) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

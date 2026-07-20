@@ -46,6 +46,7 @@ export default function NewClinicNotePage() {
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagInput, setNewTagInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sessionIdState, setSessionIdState] = useState<string | null>(null);
 
   // Editor state
   const [editorText, setEditorText] = useState(
@@ -270,6 +271,22 @@ export default function NewClinicNotePage() {
           const folderData = await folderRes.json();
           // Fetch full patient details with folders
           await fetchPatientDetails(folderData.patient.id);
+
+          // Check if sessionId is in search params
+          const urlParams = new URLSearchParams(window.location.search);
+          const sId = urlParams.get("sessionId");
+          if (sId) {
+            setSessionIdState(sId);
+            const sessionObj = folderData.sessions?.find(
+              (s: any) => s.id === sId || s.sessionId === sId
+            );
+            if (sessionObj) {
+              setTitle(sessionObj.name);
+              if (sessionObj.program) {
+                setProgram(sessionObj.program.name);
+              }
+            }
+          }
         }
 
         // 2. Fetch active programs
@@ -583,7 +600,8 @@ export default function NewClinicNotePage() {
           program,
           tags,
           content: editorText,
-          status: isLocked ? "SIGNED" : "DRAFT"
+          status: isLocked ? "SIGNED" : "DRAFT",
+          sessionId: sessionIdState || undefined
         })
       });
 

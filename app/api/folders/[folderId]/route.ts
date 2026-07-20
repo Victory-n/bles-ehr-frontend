@@ -38,6 +38,10 @@ export async function GET(
             }
           },
         },
+        children: {
+          where: { deletedAt: null },
+          orderBy: { sortOrder: 'asc' }
+        },
         documents: {
           where: { deletedAt: null },
           include: {
@@ -90,6 +94,10 @@ export async function GET(
                 }
               },
             },
+            children: {
+              where: { deletedAt: null },
+              orderBy: { sortOrder: 'asc' }
+            },
             documents: {
               where: { deletedAt: null },
               include: {
@@ -136,6 +144,10 @@ export async function GET(
                   }
                 },
               },
+              children: {
+                where: { deletedAt: null },
+                orderBy: { sortOrder: 'asc' }
+              },
               documents: {
                 where: { deletedAt: null },
                 include: {
@@ -168,7 +180,59 @@ export async function GET(
       return NextResponse.json({ message: 'Folder not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ folder, patient: folder.patient, documents: folder.documents }, { status: 200 });
+    // Fetch sessions for this patient
+    const sessions = await prisma.session.findMany({
+      where: {
+        patientProgram: {
+          patientId: folder.patientId
+        },
+        deletedAt: null
+      },
+      include: {
+        program: true,
+        recordings: {
+          where: {
+            deletedAt: null
+          },
+          include: {
+            clinicNote: {
+              include: {
+                versions: {
+                  orderBy: { version: "desc" },
+                  take: 1
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: { startDate: "desc" }
+    });
+
+    // Fetch treatment plans for this patient
+    const treatmentPlans = await prisma.treatmentPlan.findMany({
+      where: {
+        patientId: folder.patientId,
+        deletedAt: null
+      },
+      include: {
+        createdBy: {
+          select: { id: true, firstname: true, lastname: true }
+        },
+        sessions: {
+          select: { id: true, sessionId: true, name: true, startDate: true }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return NextResponse.json({
+      folder,
+      patient: folder.patient,
+      documents: folder.documents,
+      sessions,
+      treatmentPlans
+    }, { status: 200 });
   } catch (error) {
     console.error('GET /api/folders/[folderId] error:', error);
     return NextResponse.json(
