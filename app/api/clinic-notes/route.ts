@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { folderId, title, noteType, program, tags, content, status } = body;
+    const { folderId, title, noteType, program, tags, content, status, sessionId } = body;
 
     if (!folderId || !title || !noteType || content === undefined || content === null) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
@@ -70,6 +70,84 @@ export async function POST(req: Request) {
     const noteStatus = status === "SIGNED" ? "SIGNED" : "DRAFT";
 
     const result = await prisma.$transaction(async (tx) => {
+      let resolvedSessionId: string | null = null;
+
+      if (sessionId) {
+        // If sessionId is provided, check if it exists in the database
+        const existingSession = await tx.session.findFirst({
+          where: {
+            OR: [
+              { id: sessionId },
+              { sessionId: sessionId }
+            ],
+            deletedAt: null
+          }
+        });
+        if (!existingSession) {
+          throw new Error("Session not found");
+        }
+        resolvedSessionId = existingSession.id;
+      } else {
+        // If no sessionId is provided, create a new Session record
+        const programName = program && program !== "None" ? program : "General Clinic Sessions";
+        
+        let dbProgram = await tx.program.findFirst({
+          where: { name: programName, deletedAt: null }
+        });
+
+        if (!dbProgram) {
+          const randomProgNum = Math.floor(10000 + Math.random() * 90000);
+          const programIdStr = `PRG-${randomProgNum}`;
+          dbProgram = await tx.program.create({
+            data: {
+              programId: programIdStr,
+              name: programName,
+              type: "PHP",
+              sessionType: "Single",
+              frequency: "every week",
+              totalSessions: 10,
+              duration: "30 days",
+              maxEnrollment: 100,
+              status: "Active"
+            }
+          });
+        }
+
+        let patientProgram = await tx.patientProgram.findFirst({
+          where: {
+            patientId: folder.patientId,
+            programId: dbProgram.id,
+            deletedAt: null
+          }
+        });
+
+        if (!patientProgram) {
+          patientProgram = await tx.patientProgram.create({
+            data: {
+              patientId: folder.patientId,
+              programId: dbProgram.id,
+              status: "Active"
+            }
+          });
+        }
+
+        const randomSessionNum = Math.floor(10000 + Math.random() * 90000);
+        const randSessionIdStr = `SES-${randomSessionNum}`;
+        const newSession = await tx.session.create({
+          data: {
+            sessionId: randSessionIdStr,
+            name: title,
+            programId: dbProgram.id,
+            patientProgramId: patientProgram.id,
+            status: "Scheduled",
+            startDate: new Date(),
+            location: "Telehealth",
+            createdById: user.id
+          }
+        });
+        resolvedSessionId = newSession.id;
+      }
+
       // Create Document entry
       const document = await tx.document.create({
         data: {
@@ -86,6 +164,7 @@ export async function POST(req: Request) {
           signatureStatus: noteStatus === "SIGNED" ? SignatureStatus.SIGNED : SignatureStatus.UNSIGNED,
           signedById: noteStatus === "SIGNED" ? user.id : null,
           signedAt: noteStatus === "SIGNED" ? new Date() : null,
+          sessionId: resolvedSessionId,
         }
       });
 
